@@ -264,8 +264,8 @@ async function runFlow(label, { clientSecret }) {
   // 1. GET / shows the button before sign-in.
   const homeRes = await fetch(base + '/');
   const homeHtml = await homeRes.text();
-  assert.ok(homeHtml.includes('Login with reZEN'), `${label}: home page should show the button`);
-  ok(`${label}: GET / shows the Login with reZEN button`);
+  assert.ok(homeHtml.includes('Sign in with reZEN'), `${label}: home page should show the button`);
+  ok(`${label}: GET / shows the Sign in with reZEN button`);
 
   assert.equal(homeRes.headers.get('x-content-type-options'), 'nosniff', `${label}: GET / should send X-Content-Type-Options: nosniff`);
   assert.equal(homeRes.headers.get('x-frame-options'), 'DENY', `${label}: GET / should send X-Frame-Options: DENY`);
@@ -287,11 +287,11 @@ async function runFlow(label, { clientSecret }) {
   async function beginFlow() {
     const preRes = await fetch(base + '/');
     let cookie = extractCookie(preRes);
-    const loginRes = await fetch(base + '/login', { redirect: 'manual', headers: cookie ? { cookie } : {} });
-    assert.equal(loginRes.status, 302, `${label}: /login should redirect`);
+    const loginRes = await fetch(base + '/sign-in', { redirect: 'manual', headers: cookie ? { cookie } : {} });
+    assert.equal(loginRes.status, 302, `${label}: /sign-in should redirect`);
     cookie = extractCookie(loginRes) || cookie;
     const authorizeLocation = new URL(loginRes.headers.get('location'));
-    assert.equal(authorizeLocation.origin, stub.issuerUrl, `${label}: /login should redirect to the issuer`);
+    assert.equal(authorizeLocation.origin, stub.issuerUrl, `${label}: /sign-in should redirect to the issuer`);
     assert.equal(authorizeLocation.searchParams.get('response_type'), 'code');
     assert.equal(authorizeLocation.searchParams.get('code_challenge_method'), 'S256');
     assert.ok(authorizeLocation.searchParams.get('state'));
@@ -306,9 +306,9 @@ async function runFlow(label, { clientSecret }) {
     return { cookie, callbackLocation };
   }
 
-  // 2 & 3. /login -> authorize (PKCE S256, state, nonce), follow through to /callback.
+  // 2 & 3. /sign-in -> authorize (PKCE S256, state, nonce), follow through to /callback.
   const { cookie, callbackLocation } = await beginFlow();
-  ok(`${label}: /login redirects to authorize with PKCE S256, state, and nonce`);
+  ok(`${label}: /sign-in redirects to authorize with PKCE S256, state, and nonce`);
 
   const callbackRes = await fetch(callbackLocation.href, { redirect: 'manual', headers: { cookie } });
   assert.equal(callbackRes.status, 302, `${label}: a valid callback should redirect home`);

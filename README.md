@@ -1,6 +1,6 @@
-# Login with reZEN
+# Sign in with reZEN
 
-Two runnable samples of "Login with reZEN" — the OAuth 2.1 authorization code flow
+Two runnable samples of "Sign in with reZEN" — the OAuth 2.1 authorization code flow
 with PKCE and OpenID Connect identity. Each one signs a Real agent in, verifies
 their identity, and calls one Real API on their behalf. Full integration details —
 registration, scopes, token rules, errors, and the security checklist — are in the

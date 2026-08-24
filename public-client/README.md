@@ -1,6 +1,6 @@
-# Login with reZEN — public client
+# Sign in with reZEN — public client
 
-A minimal, runnable example of "Login with reZEN" that runs entirely in the browser: a
+A minimal, runnable example of "Sign in with reZEN" that runs entirely in the browser: a
 **public client** — no client secret, ever — using PKCE alone to secure the code
 exchange. Click the button, a popup completes the sign-in (falling back to a full-page
 redirect if the popup is blocked), and the page verifies your identity and calls one
@@ -51,7 +51,7 @@ your redirect URI is registered as (see the guide's errors section).
 ## What happens
 
 1. The page loads discovery and precomputes a PKCE pair.
-2. You click **Login with reZEN**; a popup opens `/authorize` with a fresh PKCE
+2. You click **Sign in with reZEN**; a popup opens `/authorize` with a fresh PKCE
    challenge, state, and nonce. If the browser blocks the popup, the page falls back to
    a full-page redirect through the same URL instead.
 3. You sign in and approve the consent screen (once — later sign-ins skip it).
@@ -69,9 +69,10 @@ Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actual
 granted, your profile (`displayName`, `type`), and the steps above as they happened.
 
 The button follows the reZEN sign-in button specification — filled and outline
-variants, three fill styles (navy, reZEN, neutral), four sizes, and the hover, pressed,
-loading and disabled states; the landing shows the filled and outline pairing on a light
-and a dark background, with the other fill styles beneath each.
+variants, three fill styles (navy, reZEN, neutral), four sizes, a wordmark layout and a
+mark-and-text layout, and the hover, pressed, loading and disabled states; the landing
+shows the filled and outline pairing on a light and a dark background, with the other
+styles beneath each.
 
 ## Test
 

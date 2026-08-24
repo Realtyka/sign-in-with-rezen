@@ -53,7 +53,7 @@ function escapeHtml(text) {
 }
 
 const CSS = `
-/* Login with reZEN — sample client.
+/* Sign in with reZEN — sample client.
  *
  * Two sheets on the reZEN brand palette: Chalk carrying Onyx type with Slate
  * for the quiet lines and Seaglass for every rule, and Cobalt carrying Chalk.
@@ -447,12 +447,25 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 @keyframes rezen-btn-spin {
   to { transform: rotate(1turn); }
 }
+/* The mark-and-text layout: the bracket mark on the left, then the whole
+ * label as text — no wordmark image. Same heights, radius, border and type;
+ * a wider gap. The mark takes the label colour on the filled variant and
+ * Onyx on the outline variant. */
+.rezen-btn.icon-left,
+.rezen-btn.icon-left.m,
+.rezen-btn.icon-left.l { --rezen-btn-gap: 12px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.s { --rezen-btn-gap: 8px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.xs { --rezen-btn-gap: 6px; --rezen-btn-mark: 14px; --rezen-btn-padding: 0 11px; }
+.rezen-btn-mark { display: block; flex: none; height: var(--rezen-btn-mark, 16px); width: auto; }
+.rezen-btn.outline .rezen-btn-mark { color: var(--onyx); }
+
 /* A specimen: drawn like the button, but not one — no pointer, no states. */
 .rezen-btn.specimen { pointer-events: none; }
 
-/* Under each call to action: the other two fill styles of the same variant. */
+/* Under each call to action: styles that differ from it. */
 .styles { margin: 22px 0 0; }
-.styles-label {
+.styles-label,
+.styles-note {
   margin: 0 0 10px;
   color: var(--muted);
   font-family: var(--font-family-mono);
@@ -460,7 +473,9 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
   letter-spacing: .16em;
   text-transform: uppercase;
 }
-.panel-dark .styles-label { color: var(--seaglass); }
+.styles-note { margin: 12px 0 0; }
+.panel-dark .styles-label,
+.panel-dark .styles-note { color: var(--seaglass); }
 .styles-row {
   display: flex;
   flex-wrap: wrap;
@@ -637,26 +652,42 @@ function scopeChips(scope) {
     .join('')}</ul>`;
 }
 
-// The button is "Sign In With" followed by the wordmark itself: the white
+// The button is "Sign in with" followed by the wordmark itself: the white
 // asset on the filled variant, the black asset on the outline variant. The
 // page has no script (its policy allows none), so the link is a plain link —
 // the loading and disabled states are in the stylesheet for an app that has
 // somewhere to set them.
 function loginButton(variant, style = 'navy', size = 'l') {
   const logo = variant === 'filled' ? 'white' : 'black';
-  return `<a class="rezen-btn ${variant} ${style} ${size}" href="/login" aria-label="Login with reZEN">`
-    + '<span class="rezen-btn-label">Sign In With</span>'
+  return `<a class="rezen-btn ${variant} ${style} ${size}" href="/sign-in" aria-label="Sign in with reZEN">`
+    + '<span class="rezen-btn-label">Sign in with</span>'
     + `<img class="rezen-btn-logo" src="/rezen-logo-${logo}.svg" alt="reZEN"></a>`;
 }
 
-// The other two fill styles of the same variant, drawn but not live.
-function otherStyles(variant) {
+// The bracket mark of the mark-and-text layout, drawn in the label colour.
+const MARK = '<svg class="rezen-btn-mark" viewBox="0 0 11.78 16" aria-hidden="true" focusable="false">'
+  + '<path fill="currentColor" d="M7.25 0v1.81H1.81v10.87H0V0Zm-2.72 16v-1.81h5.44V3.32h1.81V16Z"/></svg>';
+
+// A specimen: drawn like the button, but not one. Either the wordmark layout
+// or the mark-and-text layout, in any variant and fill style.
+function specimen(variant, style, layout = 'logo') {
   const logo = variant === 'filled' ? 'white' : 'black';
-  const specimen = (style) => `<span class="rezen-btn specimen ${variant} ${style} s">`
-    + '<span class="rezen-btn-label">Sign In With</span>'
-    + `<img class="rezen-btn-logo" src="/rezen-logo-${logo}.svg" alt=""></span>`;
-  return '<div class="styles" aria-hidden="true"><p class="styles-label">Other fill styles</p>'
-    + `<div class="styles-row">${specimen('rezen')}${specimen('neutral')}</div></div>`;
+  const inner = layout === 'mark'
+    ? `${MARK}<span class="rezen-btn-label">Sign in with reZEN</span>`
+    : `<span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-${logo}.svg" alt="">`;
+  return `<span class="rezen-btn specimen ${variant} ${style} s${layout === 'mark' ? ' icon-left' : ''}">${inner}</span>`;
+}
+
+// Under each call to action: styles that differ from it. The outline variant
+// is the same in every fill style, so the dark panel says so rather than
+// repeating it.
+function otherStyles(variant) {
+  const row = variant === 'filled'
+    ? [specimen('filled', 'rezen'), specimen('filled', 'neutral'), specimen('filled', 'navy', 'mark')]
+    : [specimen('outline', 'navy', 'mark'), specimen('filled', 'rezen')];
+  const note = variant === 'filled' ? '' : '<p class="styles-note">Outline is the same in every fill style</p>';
+  return '<div class="styles" aria-hidden="true"><p class="styles-label">Other styles</p>'
+    + `<div class="styles-row">${row.join('')}</div>${note}</div>`;
 }
 
 function homePage(sessionData) {
@@ -692,15 +723,15 @@ function homePage(sessionData) {
       ${profileBlock}
       <h2 class="section-label">What happened</h2>
       <ol class="steps">${steps}</ol>
-      <p class="logout"><a class="quiet" href="/logout">Log out</a></p>
+      <p class="logout"><a class="quiet" href="/sign-out">Sign out</a></p>
     `);
   }
-  return layout('Login with reZEN', `
+  return layout('Sign in with reZEN', `
     <div class="panels">
       <div class="panel panel-light reveal">
         <img class="panel-logo" src="/rezen-logo-black.svg" alt="reZEN">
         <p class="panel-kicker">On a light background</p>
-        <h1>Login with reZEN</h1>
+        <h1>Sign in with reZEN</h1>
         <p class="panel-copy">This sample runs the authorization code flow with PKCE against a
         reZEN OIDC issuer, verifies your identity, and calls one Real API on your behalf.</p>
         <p class="cta">${loginButton('filled')}</p>
@@ -710,7 +741,7 @@ function homePage(sessionData) {
       <div class="panel panel-dark reveal">
         <img class="panel-logo" src="/rezen-logo-white.svg" alt="reZEN">
         <p class="panel-kicker">On a dark background</p>
-        <h2 class="display">Login with reZEN</h2>
+        <h2 class="display">Sign in with reZEN</h2>
         <p class="panel-copy">The same flow, the same client, the same button — drawn for a dark
         page. Either button starts the sign-in.</p>
         <p class="cta">${loginButton('outline')}</p>
@@ -738,8 +769,8 @@ function mapTokenError(err) {
   return known[err] || `Token exchange failed${err ? `: ${err}` : ''}.`;
 }
 
-// Sessions older than this are swept on every /login; the map itself is
-// capped so an endless stream of uncookied /login calls can't grow it
+// Sessions older than this are swept on every /sign-in; the map itself is
+// capped so an endless stream of uncookied /sign-in calls can't grow it
 // without bound — both are sample-scale limits, not a real eviction policy.
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SESSION_CAP = 1000;
@@ -776,7 +807,7 @@ export function createServer(config) {
     }
   }
 
-  // Always mints a fresh session id — /login is where sign-in starts, and a
+  // Always mints a fresh session id — /sign-in is where sign-in starts, and a
   // pre-existing sid (uncookied visitor, or a stale session) must not be
   // carried into the newly authenticated session.
   function newSession(req, res) {
@@ -812,7 +843,7 @@ export function createServer(config) {
         return sendSvg(res, LOGOS[url.pathname]);
       }
 
-      if (req.method === 'GET' && url.pathname === '/login') {
+      if (req.method === 'GET' && url.pathname === '/sign-in') {
         const session = newSession(req, res);
         let discovery;
         try {
@@ -951,7 +982,7 @@ export function createServer(config) {
         return redirect(res, '/');
       }
 
-      if (req.method === 'GET' && url.pathname === '/logout') {
+      if (req.method === 'GET' && url.pathname === '/sign-out') {
         const session = getSession(req);
         if (session) sessions.delete(session.id);
         res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');

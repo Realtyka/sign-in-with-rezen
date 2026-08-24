@@ -1,4 +1,4 @@
-/* Login with reZEN — sample client.
+/* Sign in with reZEN — sample client.
  *
  * Two sheets on the reZEN brand palette: Chalk carrying Onyx type with Slate
  * for the quiet lines and Seaglass for every rule, and Cobalt carrying Chalk.
@@ -401,12 +401,25 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 @keyframes rezen-btn-spin {
   to { transform: rotate(1turn); }
 }
+/* The mark-and-text layout: the bracket mark on the left, then the whole
+ * label as text — no wordmark image. Same heights, radius, border and type;
+ * a wider gap. The mark takes the label colour on the filled variant and
+ * Onyx on the outline variant. */
+.rezen-btn.icon-left,
+.rezen-btn.icon-left.m,
+.rezen-btn.icon-left.l { --rezen-btn-gap: 12px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.s { --rezen-btn-gap: 8px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.xs { --rezen-btn-gap: 6px; --rezen-btn-mark: 14px; --rezen-btn-padding: 0 11px; }
+.rezen-btn-mark { display: block; flex: none; height: var(--rezen-btn-mark, 16px); width: auto; }
+.rezen-btn.outline .rezen-btn-mark { color: var(--onyx); }
+
 /* A specimen: drawn like the button, but not one — no pointer, no states. */
 .rezen-btn.specimen { pointer-events: none; }
 
-/* Under each call to action: the other two fill styles of the same variant. */
+/* Under each call to action: styles that differ from it. */
 .styles { margin: 22px 0 0; }
-.styles-label {
+.styles-label,
+.styles-note {
   margin: 0 0 10px;
   color: var(--muted);
   font-family: var(--font-family-mono);
@@ -414,7 +427,9 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
   letter-spacing: .16em;
   text-transform: uppercase;
 }
-.panel-dark .styles-label { color: var(--seaglass); }
+.styles-note { margin: 12px 0 0; }
+.panel-dark .styles-label,
+.panel-dark .styles-note { color: var(--seaglass); }
 .styles-row {
   display: flex;
   flex-wrap: wrap;

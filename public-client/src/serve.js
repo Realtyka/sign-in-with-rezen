@@ -110,7 +110,7 @@ if (isMain) {
   const config = loadConfig();
   const server = createServer(config);
   server.listen(config.port, () => {
-    console.log(`Login with reZEN (public client) listening at http://[::1]:${config.port}`);
+    console.log(`Sign in with reZEN (public client) listening at http://[::1]:${config.port}`);
     console.log(`Issuer:       ${config.issuer}`);
     console.log(`Redirect URI: ${config.redirectUri}`);
     console.log(`Scopes:       ${config.scopes.join(' ')}`);

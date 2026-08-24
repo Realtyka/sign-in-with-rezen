@@ -1,7 +1,7 @@
 {
   "name": "login-with-rezen-public-client",
   "version": "1.0.0",
-  "description": "A minimal, runnable example of Login with reZEN from the browser: a public client using PKCE alone, with a popup sign-in flow and a redirect fallback.",
+  "description": "A minimal, runnable example of Sign in with reZEN from the browser: a public client using PKCE alone, with a popup sign-in flow and a redirect fallback.",
   "type": "module",
   "private": true,
   "license": "MIT",

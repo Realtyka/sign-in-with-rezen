@@ -425,8 +425,8 @@ async function testStaticServer() {
   const homeRes = await fetch(base + '/');
   const homeHtml = await homeRes.text();
   assert.equal(homeRes.status, 200);
-  assert.ok(homeHtml.includes('Login with reZEN'), 'the home page should show the "Login with reZEN" heading');
-  ok('GET / serves the page with the Login with reZEN heading');
+  assert.ok(homeHtml.includes('Sign in with reZEN'), 'the home page should show the "Sign in with reZEN" heading');
+  ok('GET / serves the page with the Sign in with reZEN heading');
 
   assert.equal(homeRes.headers.get('x-content-type-options'), 'nosniff', 'GET / should send X-Content-Type-Options: nosniff');
   assert.equal(homeRes.headers.get('x-frame-options'), 'DENY', 'GET / should send X-Frame-Options: DENY');

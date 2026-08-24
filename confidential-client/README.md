@@ -1,10 +1,10 @@
-# Login with reZEN
+# Sign in with reZEN
 
 This is the server-side (`confidential-client`) sample. If your app has no backend
 that can hold a secret, use the `public-client` project instead (see the root
 README).
 
-A minimal, runnable example of "Login with reZEN" — the OAuth 2.1 authorization code
+A minimal, runnable example of "Sign in with reZEN" — the OAuth 2.1 authorization code
 flow with PKCE and OpenID Connect identity. Sign in, and the sample verifies your
 identity and calls one Real API on your behalf.
 
@@ -36,7 +36,7 @@ your redirect URI is registered as (see the guide's errors section).
 
 ## What happens
 
-1. You click **Login with reZEN**; the sample generates PKCE and sends you to `/authorize`.
+1. You click **Sign in with reZEN**; the sample generates PKCE and sends you to `/authorize`.
 2. You sign in and approve the consent screen (once — later sign-ins skip it).
 3. reZEN redirects back with a one-time authorization code.
 4. The sample exchanges the code for tokens (with your client secret if you have one,
@@ -51,9 +51,10 @@ granted, your profile from `/me` (`displayName`, `type`), and the steps above as
 they happened.
 
 The button follows the reZEN sign-in button specification — filled and outline
-variants, three fill styles (navy, reZEN, neutral), four sizes, and the hover, pressed,
-loading and disabled states; the landing shows the filled and outline pairing on a light
-and a dark background, with the other fill styles beneath each. This page carries no
+variants, three fill styles (navy, reZEN, neutral), four sizes, a wordmark layout and a
+mark-and-text layout, and the hover, pressed, loading and disabled states; the landing
+shows the filled and outline pairing on a light and a dark background, with the other
+styles beneath each. This page carries no
 script, so the link stays static; the loading and disabled state classes are in the
 stylesheet for an app that has somewhere to set them.
 
@@ -75,6 +76,6 @@ real credentials.
   evidence, not a credential.
 - Refresh and revoke aren't implemented here — see the guide's refresh and security
   sections.
-- `/login` and `/logout` are plain GETs with no CSRF token, and the session cookie has
+- `/sign-in` and `/sign-out` are plain GETs with no CSRF token, and the session cookie has
   no `Secure` flag — both fine for this loopback sample; add CSRF protection and
   `Secure` before running this on a real host.

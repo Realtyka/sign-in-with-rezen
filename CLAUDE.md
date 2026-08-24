@@ -6,7 +6,7 @@ is read by them as-is.
 ## The bar for every committed file
 
 - **Client-presentable.** Code, comments, README, tests, commit messages: written for an outside
-  developer integrating "Login with reZEN". If it would need explaining to them, rewrite it or
+  developer integrating "Sign in with reZEN". If it would need explaining to them, rewrite it or
   leave it out.
 - **No internal references.** No ticket identifiers, internal project or tool names, internal
   repository or service names, people's names, or internal hostnames. The only hostnames that
