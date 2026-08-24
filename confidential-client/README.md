@@ -68,3 +68,6 @@ real credentials.
   evidence, not a credential.
 - Refresh and revoke aren't implemented here — see the guide's refresh and security
   sections.
+- `/login` and `/logout` are plain GETs with no CSRF token, and the session cookie has
+  no `Secure` flag — both fine for this loopback sample; add CSRF protection and
+  `Secure` before running this on a real host.

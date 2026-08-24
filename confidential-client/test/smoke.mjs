@@ -65,6 +65,7 @@ async function startStub({ clientId, clientSecret }) {
   const codes = new Map(); // code -> { codeChallenge, redirectUri, nonce, scope }
   const accessTokens = new Set();
   let tokenMode = 'ok';
+  let userinfoMode = 'ok';
 
   function json(res, status, body) {
     res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -143,9 +144,9 @@ async function startStub({ clientId, clientSecret }) {
       const now = Math.floor(Date.now() / 1000);
       const claims = {
         iss: issuerUrl,
-        aud: clientId,
+        aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : clientId,
         sub: TEST_USER.sub,
-        exp: now + 3600,
+        exp: tokenMode === 'expired' ? now - 3600 : now + 3600,
         iat: now,
         nonce: tokenMode === 'bad-nonce' ? 'not-the-right-nonce' : entry.nonce,
         name: TEST_USER.name,
@@ -160,7 +161,7 @@ async function startStub({ clientId, clientSecret }) {
         access_token: accessToken,
         token_type: 'Bearer',
         expires_in: 43200,
-        scope: entry.scope,
+        scope: tokenMode === 'no-scope' ? undefined : entry.scope,
         refresh_token: `rt_test_${randomBytes(8).toString('hex')}`,
         id_token: idToken,
       });
@@ -171,7 +172,7 @@ async function startStub({ clientId, clientSecret }) {
       const token = auth && auth.startsWith('Bearer ') ? auth.slice('Bearer '.length) : undefined;
       if (!token || !accessTokens.has(token)) return json(res, 401, { error: 'invalid_token' });
       return json(res, 200, {
-        sub: TEST_USER.sub,
+        sub: userinfoMode === 'bad-sub' ? 'someone-elses-sub' : TEST_USER.sub,
         name: TEST_USER.name,
         email: TEST_USER.email,
         email_verified: true,
@@ -199,6 +200,7 @@ async function startStub({ clientId, clientSecret }) {
     issuerUrl,
     apiUrl,
     setTokenMode(mode) { tokenMode = mode; },
+    setUserinfoMode(mode) { userinfoMode = mode; },
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -252,6 +254,11 @@ async function runFlow(label, { clientSecret }) {
   const homeHtml = await homeRes.text();
   assert.ok(homeHtml.includes('Login with reZEN'), `${label}: home page should show the button`);
   ok(`${label}: GET / shows the Login with reZEN button`);
+
+  assert.equal(homeRes.headers.get('x-content-type-options'), 'nosniff', `${label}: GET / should send X-Content-Type-Options: nosniff`);
+  assert.equal(homeRes.headers.get('x-frame-options'), 'DENY', `${label}: GET / should send X-Frame-Options: DENY`);
+  assert.ok(homeRes.headers.get('content-security-policy'), `${label}: GET / should send a Content-Security-Policy header`);
+  ok(`${label}: GET / sends security headers`);
 
   // Drives one authorize -> callback round trip from a fresh session; returns
   // the cookie the callback should be called with and the callback URL the
@@ -341,6 +348,57 @@ async function runFlow(label, { clientSecret }) {
   }
   stub.setTokenMode('ok');
   ok(`${label}: callback rejects a nonce mismatch`);
+
+  // Negative: an expired id_token is rejected.
+  stub.setTokenMode('expired');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: an expired id_token should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects an expired id_token`);
+
+  // Negative: an aud mismatch is rejected.
+  stub.setTokenMode('bad-aud');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: an aud mismatch should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects an aud mismatch`);
+
+  // A token response that omits scope falls back to the requested scopes.
+  stub.setTokenMode('no-scope');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    assert.equal(res.status, 302, `${label}: a token response without scope should still sign in`);
+    const signedIn = extractCookie(res) || c;
+    const page = await fetch(base + '/', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    for (const s of config.scopes) {
+      assert.ok(html.includes(s), `${label}: a token response without scope should fall back to the requested scopes (missing ${s})`);
+    }
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: a token response without scope falls back to the requested scopes`);
+
+  // A userinfo sub mismatch is ignored — the page keeps the id_token identity.
+  stub.setUserinfoMode('bad-sub');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    assert.equal(res.status, 302, `${label}: a userinfo sub mismatch should still sign in`);
+    const signedIn = extractCookie(res) || c;
+    const page = await fetch(base + '/', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    assert.ok(html.includes(TEST_USER.sub), `${label}: a userinfo sub mismatch should keep the id_token sub`);
+    assert.ok(html.includes('Userinfo ignored'), `${label}: a userinfo sub mismatch should be recorded as a step`);
+  }
+  stub.setUserinfoMode('ok');
+  ok(`${label}: a userinfo sub mismatch keeps the id_token identity`);
 
   await new Promise((resolve) => server.close(resolve));
   await stub.close();

@@ -395,6 +395,27 @@ async function testStaticServer() {
   assert.ok(homeHtml.includes('Login with reZEN'), 'the home page should show the "Login with reZEN" heading');
   ok('GET / serves the page with the Login with reZEN heading');
 
+  assert.equal(homeRes.headers.get('x-content-type-options'), 'nosniff', 'GET / should send X-Content-Type-Options: nosniff');
+  assert.equal(homeRes.headers.get('x-frame-options'), 'DENY', 'GET / should send X-Frame-Options: DENY');
+  assert.ok(homeRes.headers.get('content-security-policy'), 'GET / should send a Content-Security-Policy header');
+  ok('GET / sends security headers');
+
+  // http.get() sends the path on the wire unmodified — unlike fetch()/URL,
+  // which would normalize the '..' segment away before the request is sent.
+  function rawGet(path) {
+    return new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port, path }, (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode));
+      }).on('error', reject);
+    });
+  }
+  for (const path of ['/../package.json', '/%2e%2e/package.json']) {
+    const status = await rawGet(path);
+    assert.equal(status, 404, `GET ${path} should not escape the public/ directory`);
+  }
+  ok('GET /../package.json and /%2e%2e/package.json both 404 — no path traversal out of public/');
+
   const callbackRes = await fetch(base + '/callback');
   assert.equal(callbackRes.status, 200);
   const callbackHtml = await callbackRes.text();

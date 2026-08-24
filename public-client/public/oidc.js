@@ -69,6 +69,7 @@ export async function exchangeCode(discovery, { clientId, code, redirectUri, ver
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }
@@ -100,8 +101,18 @@ export async function verifyIdToken(idToken, { jwks, issuer, clientId, nonce }) 
   if (claims.iss !== issuer) throw new Error(`id_token iss mismatch: ${claims.iss}`);
   const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   if (!aud.includes(clientId)) throw new Error('id_token aud does not include this client');
-  if (typeof claims.exp !== 'number' || claims.exp <= Math.floor(Date.now() / 1000)) {
+  // OIDC Core 3.1.3.7: with more than one aud value, azp must name this client.
+  if (aud.length > 1 && claims.azp !== clientId) {
+    throw new Error('id_token azp must equal this client when aud has more than one value');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const CLOCK_SKEW_LEEWAY_SECONDS = 60;
+  if (typeof claims.exp !== 'number' || claims.exp <= now - CLOCK_SKEW_LEEWAY_SECONDS) {
     throw new Error('id_token has expired');
+  }
+  if (typeof claims.iat !== 'number' || claims.iat > now + CLOCK_SKEW_LEEWAY_SECONDS) {
+    throw new Error('id_token iat is missing or in the future');
   }
   if (claims.nonce !== nonce) throw new Error('id_token nonce does not match');
 
@@ -113,6 +124,7 @@ export async function userinfo(discovery, accessToken) {
   const res = await fetch(discovery.userinfo_endpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }
@@ -122,6 +134,7 @@ export async function apiCall(apiBase, path, accessToken) {
   const res = await fetch(`${apiBase}${path}`, {
     headers: { 'x-api-key': accessToken, Accept: 'application/json' },
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }

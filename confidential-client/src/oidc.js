@@ -28,6 +28,13 @@ export function authorizeUrl(discovery, { clientId, redirectUri, scopes, state, 
   return url.href;
 }
 
+// RFC 6749 §2.3.1: client_id and client_secret are each form-urlencoded
+// before the ':' join and base64 — a secret containing ':', '%', or '+'
+// otherwise misparses at the token endpoint.
+function formEncode(value) {
+  return encodeURIComponent(value).replace(/%20/g, '+');
+}
+
 // Confidential clients authenticate with Basic auth; public clients (empty
 // clientSecret) send client_id in the body instead — PKCE and the single-use
 // code carry the security for them.
@@ -40,7 +47,8 @@ export async function exchangeCode(discovery, { clientId, clientSecret, code, re
   };
   const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
   if (clientSecret) {
-    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+    const credentials = `${formEncode(clientId)}:${formEncode(clientSecret)}`;
+    headers.Authorization = `Basic ${Buffer.from(credentials).toString('base64')}`;
   } else {
     form.client_id = clientId;
   }
@@ -49,6 +57,7 @@ export async function exchangeCode(discovery, { clientId, clientSecret, code, re
     headers,
     body: new URLSearchParams(form).toString(),
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }
@@ -73,8 +82,18 @@ export async function verifyIdToken(idToken, { jwks, issuer, clientId, nonce }) 
   if (claims.iss !== issuer) throw new Error(`id_token iss mismatch: ${claims.iss}`);
   const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
   if (!aud.includes(clientId)) throw new Error('id_token aud does not include this client');
-  if (typeof claims.exp !== 'number' || claims.exp <= Math.floor(Date.now() / 1000)) {
+  // OIDC Core 3.1.3.7: with more than one aud value, azp must name this client.
+  if (aud.length > 1 && claims.azp !== clientId) {
+    throw new Error('id_token azp must equal this client when aud has more than one value');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const CLOCK_SKEW_LEEWAY_SECONDS = 60;
+  if (typeof claims.exp !== 'number' || claims.exp <= now - CLOCK_SKEW_LEEWAY_SECONDS) {
     throw new Error('id_token has expired');
+  }
+  if (typeof claims.iat !== 'number' || claims.iat > now + CLOCK_SKEW_LEEWAY_SECONDS) {
+    throw new Error('id_token iat is missing or in the future');
   }
   if (claims.nonce !== nonce) throw new Error('id_token nonce does not match');
 
@@ -86,6 +105,7 @@ export async function userinfo(discovery, accessToken) {
   const res = await fetch(discovery.userinfo_endpoint, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }
@@ -95,6 +115,7 @@ export async function apiCall(apiBase, path, accessToken) {
   const res = await fetch(`${apiBase}${path}`, {
     headers: { 'x-api-key': accessToken, Accept: 'application/json' },
   });
+  // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
 }

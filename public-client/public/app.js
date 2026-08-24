@@ -1,18 +1,30 @@
 import { apiCall, authorizeUrl, discover, pkce, randomToken, userinfo } from './oidc.js';
+import { CHANNEL_NAME, POPUP_NAME, SESSION_KEY, STASH_KEY } from './keys.js';
 
-const STASH_KEY = 'login-with-rezen:flow';
-const SESSION_KEY = 'login-with-rezen:session';
-const CHANNEL_NAME = 'login-with-rezen';
-const POPUP_NAME = 'login-with-rezen';
+const POPUP_CLOSE_POLL_MS = 500;
 
 let config;
 let discovery;
 let currentPkce;
 let popupHandle;
+let popupWatcher;
 // The refresh token lives only in this module-level variable — it is never
 // written to sessionStorage, and it is gone after a reload (this sample
 // does not implement refresh; see the README).
 let refreshToken;
+// The state of the flow this tab is waiting on, so a result meant for a
+// different tab (or a stale result from a closed popup) is never applied
+// here. Restored below from this tab's own stash — the popup's copy of the
+// stash is removed once it hands off its result, but the opener's copy
+// (this tab's) survives, since sessionStorage is cloned into a popup, not
+// shared with it.
+let pendingState;
+try {
+  const stashed = sessionStorage.getItem(STASH_KEY);
+  if (stashed) pendingState = JSON.parse(stashed).state;
+} catch {
+  pendingState = undefined;
+}
 
 const channel = new BroadcastChannel(CHANNEL_NAME);
 
@@ -39,6 +51,7 @@ function onLoginClick() {
   const state = randomToken();
   const nonce = randomToken();
   const { verifier, challenge } = currentPkce;
+  pendingState = state;
   sessionStorage.setItem(STASH_KEY, JSON.stringify({ state, nonce, verifier }));
 
   const url = authorizeUrl(discovery, {
@@ -57,10 +70,26 @@ function onLoginClick() {
   // critical path, so a second click is synchronous too.
   refreshPkce();
 
+  if (popupWatcher) clearInterval(popupWatcher);
   const popup = window.open(url, POPUP_NAME, 'popup,width=520,height=720');
   if (popup) {
     popupHandle = popup;
     $('status').textContent = 'Complete sign-in in the popup window…';
+    // If the user closes the popup before it delivers a result, don't leave
+    // the status message showing forever.
+    popupWatcher = setInterval(() => {
+      if (!popup.closed) return;
+      clearInterval(popupWatcher);
+      popupWatcher = undefined;
+      if (popupHandle === popup) popupHandle = undefined;
+      // Only clear the pending flow if it's still this one — a result may
+      // already have arrived and closed the popup itself.
+      if (pendingState === state) {
+        pendingState = undefined;
+        sessionStorage.removeItem(STASH_KEY);
+        $('status').textContent = '';
+      }
+    }, POPUP_CLOSE_POLL_MS);
   } else {
     // Popup blocked — fall back to a full-page redirect through the same
     // authorize URL and the same callback page.
@@ -70,12 +99,25 @@ function onLoginClick() {
 
 function handleResult(msg) {
   if (!msg || msg.type !== 'login-with-rezen') return;
+  // Ignore a result for a flow this tab didn't start (or already finished)
+  // — the channel delivers to every same-origin tab, not just this one.
+  if (!pendingState || msg.state !== pendingState) return;
+  pendingState = undefined;
+  sessionStorage.removeItem(STASH_KEY);
+  if (popupWatcher) {
+    clearInterval(popupWatcher);
+    popupWatcher = undefined;
+  }
   if (popupHandle && !popupHandle.closed) popupHandle.close();
   popupHandle = undefined;
   refreshToken = msg.refresh_token;
+  // Tell the popup its result was received — it waits briefly for this
+  // before closing itself (see callback.js).
+  channel.postMessage({ type: 'login-with-rezen:ack', state: msg.state });
   completeAndRender({
     accessToken: msg.access_token,
-    expiresAt: Date.now() + (msg.expires_in || 0) * 1000,
+    // A missing expires_in means "no expiry known", not "expired now".
+    expiresAt: typeof msg.expires_in === 'number' ? Date.now() + msg.expires_in * 1000 : undefined,
     scope: msg.scope || '',
     claims: msg.claims,
     steps: [...(msg.steps || [])],
@@ -88,12 +130,20 @@ async function completeAndRender(session) {
   const steps = [...(session.steps || [])];
 
   // Identity comes from /userinfo — the id_token proves who signed in (sub),
-  // /userinfo carries the claims the granted scopes release.
+  // /userinfo carries the claims the granted scopes release. OIDC Core
+  // 5.3.2: only trust /userinfo when its sub matches the verified id_token
+  // — otherwise keep the id_token's claims as-is.
   let claims = session.claims || {};
   try {
     const res = await userinfo(discovery, session.accessToken);
-    steps.push(res.status === 200 ? 'userinfo fetched' : `userinfo call failed (HTTP ${res.status})`);
-    if (res.status === 200 && res.body && typeof res.body === 'object') claims = { ...claims, ...res.body };
+    if (res.status !== 200) {
+      steps.push(`userinfo call failed (HTTP ${res.status})`);
+    } else if (res.body && typeof res.body === 'object' && res.body.sub === claims.sub) {
+      claims = { ...claims, ...res.body };
+      steps.push('userinfo fetched');
+    } else {
+      steps.push('Userinfo ignored — sub did not match the ID token');
+    }
   } catch (err) {
     steps.push(`userinfo call failed (${err.message})`);
   }
@@ -206,7 +256,12 @@ async function restoreSession() {
 }
 
 async function boot() {
-  config = (await import('/config.js')).default;
+  try {
+    config = (await import('/config.js')).default;
+  } catch (err) {
+    showError(`Could not load the app configuration: ${err.message}`);
+    return;
+  }
   try {
     discovery = await discover(config.issuer);
   } catch (err) {

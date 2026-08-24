@@ -84,6 +84,8 @@ kind of stub.
   identity claims) into `sessionStorage`, so a reload of this tab stays signed in. The
   refresh token is held in memory only and is never written to `sessionStorage` or
   anywhere else — it is gone after a reload; the access token survives until it expires.
+  That mirror is readable by any script that runs on this app's origin — the accepted
+  cost of having no backend to hold it instead.
 - The popup hands its result to the main page over a `BroadcastChannel`, not only
   `window.opener.postMessage` — some issuer pages set a
   `Cross-Origin-Opener-Policy` header that detaches `window.opener`, and the channel

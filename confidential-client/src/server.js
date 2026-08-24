@@ -14,18 +14,28 @@ const LOGOS = {
   '/rezen-logo-white.svg': readFileSync(join(assetDir, 'rezen-logo-white.svg')),
 };
 
+// Sent on every response — defense in depth for a page that already escapes
+// every dynamic value and renders nothing from a <script>.
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
+};
+
 function sendHtml(res, html, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS });
   res.end(html);
 }
 
 function sendSvg(res, body) {
-  res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+  res.writeHead(200, { 'Content-Type': 'image/svg+xml', ...SECURITY_HEADERS });
   res.end(body);
 }
 
 function redirect(res, location) {
-  res.writeHead(302, { Location: location });
+  res.writeHead(302, { Location: location, ...SECURITY_HEADERS });
   res.end();
 }
 
@@ -169,13 +179,6 @@ h1.sm {
   max-width: 46ch;
   color: var(--ink);
   font-size: 1.0625rem;
-}
-.status {
-  margin: 12px 0 0;
-  min-height: 1.2em;
-  color: var(--blue);
-  font-family: var(--mono);
-  font-size: .78rem;
 }
 
 /* Section labels: a short blue tick, mono small caps, a hairline to the edge. */
@@ -455,48 +458,6 @@ ol.steps li.warn::before {
 
 .logout { margin: 44px 0 0; }
 
-/* ---- the popup: 520x720, so the column centres and the ghost stays out ---- */
-.signing .wrap {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 32px 34px 44px;
-}
-.signing .col { margin-left: 0; }
-.signing h1 { font-size: clamp(1.9rem, 6vw, 2.35rem); }
-.signing .message { margin: 0; color: var(--muted); font-family: var(--mono); font-size: .8rem; }
-.signing .restart { display: none; margin: 24px 0 0; }
-.signing.is-error .message { color: var(--ink); }
-.signing.is-error .progress { display: none; }
-.signing.is-error .restart { display: block; }
-
-.progress {
-  position: relative;
-  overflow: hidden;
-  width: 220px;
-  max-width: 100%;
-  height: 3px;
-  margin: 28px 0 0;
-  border-radius: 999px;
-  background: var(--hairline);
-}
-.progress::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 38%;
-  border-radius: 999px;
-  background: var(--blue);
-  animation: slide 1.25s ease-in-out infinite;
-}
-@keyframes slide {
-  from { transform: translateX(-110%); }
-  to { transform: translateX(360%); }
-}
-
 /* ---- one orchestrated reveal on load, and nothing else moving ---- */
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
@@ -651,6 +612,12 @@ function mapTokenError(err) {
   return known[err] || `Token exchange failed${err ? `: ${err}` : ''}.`;
 }
 
+// Sessions older than this are swept on every /login; the map itself is
+// capped so an endless stream of uncookied /login calls can't grow it
+// without bound — both are sample-scale limits, not a real eviction policy.
+const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const SESSION_CAP = 1000;
+
 export function createServer(config) {
   // One in-memory session per signed-in visitor, keyed by an httpOnly cookie.
   // Tokens live only in this map, in this process — never on disk, never in a
@@ -670,12 +637,30 @@ export function createServer(config) {
     return id && sessions.has(id) ? { id, data: sessions.get(id) } : undefined;
   }
 
-  function ensureSession(req, res) {
+  // Drops sessions older than SESSION_MAX_AGE_MS, then evicts the oldest
+  // survivors (the Map iterates in insertion order, which is creation order
+  // here — a session id is never reused) until the map is back at the cap.
+  function sweepSessions() {
+    const cutoff = Date.now() - SESSION_MAX_AGE_MS;
+    for (const [id, data] of sessions) {
+      if ((data.createdAt ?? 0) < cutoff) sessions.delete(id);
+    }
+    while (sessions.size > SESSION_CAP) {
+      sessions.delete(sessions.keys().next().value);
+    }
+  }
+
+  // Always mints a fresh session id — /login is where sign-in starts, and a
+  // pre-existing sid (uncookied visitor, or a stale session) must not be
+  // carried into the newly authenticated session.
+  function newSession(req, res) {
     const existing = getSession(req);
-    if (existing) return existing;
+    if (existing) sessions.delete(existing.id);
+    sweepSessions();
     const id = randomBytes(24).toString('base64url');
-    const data = {};
+    const data = { createdAt: Date.now() };
     sessions.set(id, data);
+    // Add Secure when serving over HTTPS; omitted so the loopback http://[::1] sample works.
     res.setHeader('Set-Cookie', `sid=${id}; HttpOnly; Path=/; SameSite=Lax`);
     return { id, data };
   }
@@ -693,7 +678,7 @@ export function createServer(config) {
       }
 
       if (req.method === 'GET' && url.pathname === '/login') {
-        const session = ensureSession(req, res);
+        const session = newSession(req, res);
         let discovery;
         try {
           discovery = await getDiscovery();
@@ -757,6 +742,9 @@ export function createServer(config) {
         let jwks;
         try {
           const jwksRes = await fetch(discovery.jwks_uri);
+          if (!jwksRes.ok) {
+            return sendHtml(res, errorPage(`Could not fetch the signing keys (HTTP ${jwksRes.status})`), 400);
+          }
           jwks = await jwksRes.json();
         } catch (err) {
           return sendHtml(res, errorPage(`Could not fetch the signing keys: ${err.message}`), 400);
@@ -779,26 +767,43 @@ export function createServer(config) {
 
         // Identity comes from /userinfo — the id_token proves who signed in
         // (sub), /userinfo carries the claims the granted scopes release.
-        const userinfoRes = await userinfo(discovery, accessToken);
-        steps.push(userinfoRes.status === 200 ? 'Userinfo fetched' : `Userinfo call failed (HTTP ${userinfoRes.status})`);
-        const identity = userinfoRes.status === 200 && typeof userinfoRes.body === 'object'
-          ? { ...claims, ...userinfoRes.body }
-          : claims;
-
-        let profile;
-        const profileRes = await apiCall(config.apiBase, '/api/v1/users/me', accessToken);
-        if (profileRes.status === 200) {
-          profile = {
-            displayName: profileRes.body.displayName ?? '(not present)',
-            type: profileRes.body.type ?? '(not present)',
-          };
-          steps.push('Profile fetched from /me with x-api-key (200)');
-        } else {
-          steps.push(`Profile call failed (HTTP ${profileRes.status})`);
+        // OIDC Core 5.3.2: only trust /userinfo when its sub matches the
+        // verified id_token — otherwise keep the id_token's claims as-is.
+        let identity = claims;
+        try {
+          const userinfoRes = await userinfo(discovery, accessToken);
+          if (userinfoRes.status !== 200) {
+            steps.push(`Userinfo call failed (HTTP ${userinfoRes.status})`);
+          } else if (typeof userinfoRes.body === 'object' && userinfoRes.body.sub === claims.sub) {
+            identity = { ...claims, ...userinfoRes.body };
+            steps.push('Userinfo fetched');
+          } else {
+            steps.push('Userinfo ignored — sub did not match the ID token');
+          }
+        } catch (err) {
+          steps.push(`Userinfo call failed (${err.message})`);
         }
 
+        let profile;
+        try {
+          const profileRes = await apiCall(config.apiBase, '/api/v1/users/me', accessToken);
+          if (profileRes.status === 200) {
+            profile = {
+              displayName: profileRes.body.displayName ?? '(not present)',
+              type: profileRes.body.type ?? '(not present)',
+            };
+            steps.push('Profile fetched from /me with x-api-key (200)');
+          } else {
+            steps.push(`Profile call failed (HTTP ${profileRes.status})`);
+          }
+        } catch (err) {
+          steps.push(`Profile call failed (${err.message})`);
+        }
+
+        // RFC 6749 §5.1: scope is OPTIONAL in the token response when it
+        // equals the request — a compliant server may omit it entirely.
         session.data.identity = { sub: identity.sub, name: identity.name, email: identity.email, yentaId: identity.yentaId };
-        session.data.scope = tokenRes.body.scope || '';
+        session.data.scope = tokenRes.body.scope || config.scopes.join(' ');
         session.data.profile = profile;
         session.data.steps = steps;
         session.data.flow = undefined;
@@ -813,11 +818,11 @@ export function createServer(config) {
         return redirect(res, '/');
       }
 
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
       res.end('not found');
     } catch (err) {
       console.error('unexpected error:', err?.message || err);
-      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
       res.end('unexpected error');
     }
   };

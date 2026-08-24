@@ -33,9 +33,28 @@ function configScript(config) {
   return `export default ${JSON.stringify(payload, null, 2)};\n`;
 }
 
-function notFound(res) {
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('not found');
+function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+// Sent on every response — defense in depth for a page that loads only its
+// own scripts and styles. connect-src names the issuer and the API host
+// pulled from config, since fetch() talks to both directly from the browser.
+function securityHeaders(config) {
+  const connectSrc = ["'self'", originOf(config.issuer), originOf(config.apiBase)]
+    .filter(Boolean)
+    .join(' ');
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy':
+      `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ${connectSrc}; base-uri 'none'; frame-ancestors 'none'`,
+  };
 }
 
 // A zero-dependency static file server for public/, plus one generated
@@ -43,16 +62,23 @@ function notFound(res) {
 // .env directly, and nothing secret ever passes through here (there is no
 // client secret for a public client to leak).
 export function createServer(config) {
+  const headers = securityHeaders(config);
+
+  function notFound(res) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...headers });
+    res.end('not found');
+  }
+
   const handler = async (req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', ...headers });
       return res.end('method not allowed');
     }
 
     const pathname = new URL(req.url, 'http://placeholder').pathname;
 
     if (pathname === '/config.js') {
-      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', ...headers });
       return res.end(configScript(config));
     }
 
@@ -66,10 +92,10 @@ export function createServer(config) {
     try {
       const body = await readFile(filePath);
       const type = CONTENT_TYPES[extname(filePath)] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': type });
+      res.writeHead(200, { 'Content-Type': type, ...headers });
       res.end(body);
     } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', ...headers });
       res.end(`unexpected error: ${err.message}`);
     }
   };
