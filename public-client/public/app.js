@@ -117,13 +117,26 @@ async function completeAndRender(session) {
   renderSignedIn(mirror);
 }
 
+// The scopes that release identity claims are shown in ink; everything else
+// is a data scope on the Real API, shown in blue.
+const IDENTITY_SCOPES = new Set(['openid', 'profile', 'email', 'real.identity']);
+
+function scopeChip(scope) {
+  const li = document.createElement('li');
+  li.className = IDENTITY_SCOPES.has(scope) ? 'chip' : 'chip data';
+  li.textContent = scope;
+  return li;
+}
+
 function renderSignedIn(session) {
   const claims = session.claims || {};
   $('id-sub').textContent = claims.sub ?? '(not present)';
   $('id-name').textContent = claims.name ?? '(not present)';
   $('id-email').textContent = claims.email ?? '(not present)';
   $('id-yentaid').textContent = claims.yentaId ?? '(not present)';
-  $('id-scope').textContent = session.scope || '';
+  $('id-scope').replaceChildren(
+    ...(session.scope || '').split(/\s+/).filter(Boolean).map(scopeChip),
+  );
 
   const profileTable = $('profile-table');
   const profileSkip = $('profile-skip');
@@ -141,6 +154,9 @@ function renderSignedIn(session) {
   $('steps').replaceChildren(
     ...(session.steps || []).map((step) => {
       const li = document.createElement('li');
+      // A step that reports a failure gets a different marker — the timeline
+      // is a record of what happened, not a row of ticks.
+      if (/failed/i.test(step)) li.className = 'warn';
       li.textContent = step;
       return li;
     }),
@@ -199,9 +215,13 @@ async function boot() {
   }
   await refreshPkce();
 
-  const button = $('login-button');
-  button.disabled = false;
-  button.addEventListener('click', onLoginClick);
+  // The landing page shows the button on both a light and a dark background.
+  // Both are live and start the same flow.
+  for (const id of ['login-button', 'login-button-dark']) {
+    const button = $(id);
+    button.disabled = false;
+    button.addEventListener('click', onLoginClick);
+  }
   $('logout-link').addEventListener('click', (event) => {
     event.preventDefault();
     logOut();

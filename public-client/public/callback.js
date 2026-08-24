@@ -11,6 +11,14 @@ function showMessage(text) {
   document.getElementById('message').textContent = text;
 }
 
+// The same page carries the failure: the headline changes, the progress bar
+// stops, and the "Start again" link appears. No second template.
+function showFailure(text) {
+  document.getElementById('headline').textContent = 'Sign-in failed';
+  document.getElementById('message').textContent = text;
+  document.body.classList.add('is-error');
+}
+
 function mapAuthorizeError(err, description) {
   const known = {
     access_denied: 'You declined the consent screen — sign in again if that was not intended.',
@@ -33,29 +41,29 @@ async function run() {
 
   const errParam = params.get('error');
   if (errParam) {
-    showMessage(mapAuthorizeError(errParam, params.get('error_description')));
+    showFailure(mapAuthorizeError(errParam, params.get('error_description')));
     return;
   }
 
   const raw = sessionStorage.getItem(STASH_KEY);
   if (!raw) {
-    showMessage('No sign-in in progress — start again from the main page.');
+    showFailure('No sign-in in progress — start again from the main page.');
     return;
   }
   let stash;
   try {
     stash = JSON.parse(raw);
   } catch {
-    showMessage('The saved sign-in request was unreadable — start again.');
+    showFailure('The saved sign-in request was unreadable — start again.');
     return;
   }
 
   if (params.get('state') !== stash.state) {
-    showMessage('The state parameter did not match — start again.');
+    showFailure('The state parameter did not match — start again.');
     return;
   }
   if (params.get('iss') !== config.issuer) {
-    showMessage('The issuer on the callback did not match — start again.');
+    showFailure('The issuer on the callback did not match — start again.');
     return;
   }
 
@@ -63,7 +71,7 @@ async function run() {
   try {
     discovery = await discover(config.issuer);
   } catch (err) {
-    showMessage(`Could not read the discovery document: ${err.message}`);
+    showFailure(`Could not read the discovery document: ${err.message}`);
     return;
   }
 
@@ -74,7 +82,7 @@ async function run() {
     verifier: stash.verifier,
   });
   if (tokenRes.status !== 200) {
-    showMessage(mapTokenError(tokenRes.body?.error));
+    showFailure(mapTokenError(tokenRes.body?.error));
     return;
   }
 
@@ -83,7 +91,7 @@ async function run() {
     const jwksRes = await fetch(discovery.jwks_uri);
     jwks = await jwksRes.json();
   } catch (err) {
-    showMessage(`Could not fetch the signing keys: ${err.message}`);
+    showFailure(`Could not fetch the signing keys: ${err.message}`);
     return;
   }
 
@@ -96,7 +104,7 @@ async function run() {
       nonce: stash.nonce,
     });
   } catch (err) {
-    showMessage(`Sign-in could not be verified: ${err.message}`);
+    showFailure(`Sign-in could not be verified: ${err.message}`);
     return;
   }
 

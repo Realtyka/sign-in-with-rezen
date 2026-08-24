@@ -3,13 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/rezen-logo-black.svg">
 <title>Login with reZEN — signing in</title>
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="signing">
 <div class="wrap">
-  <h1>Signing in&hellip;</h1>
-  <p id="message" class="muted">One moment.</p>
+  <div class="col reveal">
+    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1 id="headline">Signing in&hellip;</h1>
+    <p id="message" class="message">One moment.</p>
+    <div class="progress" role="presentation"></div>
+    <p class="restart"><a href="/">Start again</a></p>
+  </div>
 </div>
 <script type="module" src="/callback.js"></script>
 </body>

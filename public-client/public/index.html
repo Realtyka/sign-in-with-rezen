@@ -3,45 +3,69 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/rezen-logo-black.svg">
 <title>Login with reZEN</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="wrap">
 
-  <section id="signed-out">
-    <h1>Login with reZEN</h1>
-    <p>This sample runs the authorization code flow with PKCE entirely in the browser,
-    verifies your identity, and calls one Real API on your behalf.</p>
-    <p><button id="login-button" class="button" type="button" disabled>Login with reZEN</button></p>
-    <p id="status" class="muted"></p>
+  <section id="signed-out" class="wide">
+    <div class="panels">
+
+      <div class="panel panel-light reveal">
+        <img class="panel-logo" src="/rezen-logo-black.svg" alt="reZEN">
+        <p class="panel-kicker">On a light background</p>
+        <h1>Login with reZEN</h1>
+        <p class="panel-copy">This sample runs the authorization code flow with PKCE entirely in the
+        browser, verifies your identity, and calls one Real API on your behalf.</p>
+        <p class="cta"><button id="login-button" class="rezen-btn on-light" type="button" aria-label="Login with reZEN" disabled><span class="rezen-btn-label">Login with</span><span class="rezen-btn-logo"><img class="rest" src="/rezen-logo-black.svg" alt="reZEN"><img class="swap" src="/rezen-logo-white.svg" alt="" aria-hidden="true"></span></button></p>
+        <p class="caption">Sign in with your reZEN account to continue</p>
+      </div>
+
+      <div class="panel panel-dark reveal">
+        <img class="panel-logo" src="/rezen-logo-white.svg" alt="reZEN">
+        <p class="panel-kicker">On a dark background</p>
+        <h2 class="display">Login with reZEN</h2>
+        <p class="panel-copy">The same flow, the same client, the same button — drawn for a dark
+        page. Either button starts the sign-in.</p>
+        <p class="cta"><button id="login-button-dark" class="rezen-btn on-dark" type="button" aria-label="Login with reZEN" disabled><span class="rezen-btn-label">Login with</span><span class="rezen-btn-logo"><img class="rest" src="/rezen-logo-white.svg" alt="reZEN"></span></button></p>
+        <p class="caption">Sign in with your reZEN account to continue</p>
+      </div>
+
+    </div>
+    <p id="status" class="status"></p>
   </section>
 
-  <section id="signed-in" hidden>
-    <h1>Signed in with reZEN</h1>
-    <h2>Identity</h2>
+  <section id="signed-in" class="col reveal" hidden>
+    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1 class="sm">Signed in with reZEN</h1>
+    <h2 class="section-label">Identity</h2>
     <table class="kv">
       <tr><td>sub</td><td id="id-sub"></td></tr>
       <tr><td>name</td><td id="id-name"></td></tr>
       <tr><td>email</td><td id="id-email"></td></tr>
       <tr><td>yentaId</td><td id="id-yentaid"></td></tr>
     </table>
-    <h2>Granted scope</h2>
-    <p><code id="id-scope"></code></p>
-    <h2>Profile</h2>
-    <table class="kv" id="profile-table" hidden>
-      <tr><td>displayName</td><td id="profile-displayname"></td></tr>
-      <tr><td>type</td><td id="profile-type"></td></tr>
-    </table>
-    <p id="profile-skip" class="muted" hidden></p>
-    <h2>What happened</h2>
+    <h2 class="section-label">Granted scope</h2>
+    <ul class="chips" id="id-scope"></ul>
+    <h2 class="section-label">Profile</h2>
+    <div class="card" id="profile-table" hidden>
+      <table class="kv">
+        <tr><td>displayName</td><td id="profile-displayname"></td></tr>
+        <tr><td>type</td><td id="profile-type"></td></tr>
+      </table>
+    </div>
+    <p id="profile-skip" class="caption" hidden></p>
+    <h2 class="section-label">What happened</h2>
     <ol id="steps" class="steps"></ol>
-    <p><a id="logout-link" href="#">Log out</a></p>
+    <p class="logout"><a id="logout-link" class="quiet" href="#">Log out</a></p>
   </section>
 
-  <section id="error-box" hidden>
-    <h1>Sign-in failed</h1>
-    <p id="error-message"></p>
+  <section id="error-box" class="col reveal" hidden>
+    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1 class="sm">Sign-in failed</h1>
+    <p id="error-message" class="error-text"></p>
     <p><a href="/">Start again</a></p>
   </section>
 
