@@ -68,6 +68,11 @@ your redirect URI is registered as (see the guide's errors section).
 Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actually
 granted, your profile (`displayName`, `type`), and the steps above as they happened.
 
+The button follows the reZEN sign-in button specification — filled and outline
+variants, three fill styles (navy, reZEN, neutral), four sizes, and the hover, pressed,
+loading and disabled states; the landing shows the filled and outline pairing on a light
+and a dark background, with the other fill styles beneath each.
+
 ## Test
 
 ```sh

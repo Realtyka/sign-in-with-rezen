@@ -8,6 +8,9 @@ let discovery;
 let currentPkce;
 let popupHandle;
 let popupWatcher;
+// The button that started the flow this tab is waiting on — it shows the
+// loading state until the popup delivers a result or goes away.
+let loadingButton;
 // The refresh token lives only in this module-level variable — it is never
 // written to sessionStorage, and it is gone after a reload (this sample
 // does not implement refresh; see the README).
@@ -47,7 +50,20 @@ async function refreshPkce() {
   currentPkce = await pkce();
 }
 
-function onLoginClick() {
+// At most one button is loading at a time: the one that opened the popup.
+function setLoading(button) {
+  if (loadingButton) {
+    loadingButton.classList.remove('is-loading');
+    loadingButton.removeAttribute('aria-busy');
+  }
+  loadingButton = button;
+  if (button) {
+    button.classList.add('is-loading');
+    button.setAttribute('aria-busy', 'true');
+  }
+}
+
+function onLoginClick(event) {
   // A second click while the popup is already open would re-navigate that
   // named window with a fresh state/nonce/verifier while the popup's own
   // (cloned) copy of the stash still holds the first one — the callback
@@ -55,6 +71,7 @@ function onLoginClick() {
   // starting a second flow.
   if (popupHandle && !popupHandle.closed) {
     popupHandle.focus();
+    setLoading(undefined);
     return;
   }
 
@@ -88,6 +105,7 @@ function onLoginClick() {
   const popup = window.open(url, POPUP_NAME, 'popup,width=520,height=720');
   if (popup) {
     popupHandle = popup;
+    setLoading(event.currentTarget);
     $('status').textContent = 'Complete sign-in in the popup window…';
     // If the user closes the popup before it delivers a result, don't leave
     // the status message showing forever.
@@ -102,6 +120,7 @@ function onLoginClick() {
       // deliver — so this is not evidence the flow is over. Clearing
       // pendingState or the stash here would make handleResult() ignore a
       // correct result that is still on its way over the BroadcastChannel.
+      setLoading(undefined);
       $('status').textContent = '';
     }, POPUP_CLOSE_POLL_MS);
   } else {
@@ -131,6 +150,7 @@ function handleResult(msg) {
   // Tell the popup its result was received — it waits briefly for this
   // before closing itself (see callback.js).
   channel.postMessage({ type: 'login-with-rezen:ack', state: msg.state });
+  // The button stays in its loading state until the result is on the page.
   completeAndRender({
     accessToken: msg.access_token,
     // A missing expires_in means "no expiry known", not "expired now".
@@ -138,7 +158,7 @@ function handleResult(msg) {
     scope: msg.scope || '',
     claims: msg.claims,
     steps: [...(msg.steps || [])],
-  });
+  }).finally(() => setLoading(undefined));
 }
 
 // Fetches /userinfo and GET /api/v1/users/me, renders the result, and

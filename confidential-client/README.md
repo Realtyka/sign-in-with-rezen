@@ -50,6 +50,13 @@ Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actual
 granted, your profile from `/me` (`displayName`, `type`), and the steps above as
 they happened.
 
+The button follows the reZEN sign-in button specification — filled and outline
+variants, three fill styles (navy, reZEN, neutral), four sizes, and the hover, pressed,
+loading and disabled states; the landing shows the filled and outline pairing on a light
+and a dark background, with the other fill styles beneath each. This page carries no
+script, so the link stays static; the loading and disabled state classes are in the
+stylesheet for an app that has somewhere to set them.
+
 ## Test
 
 ```sh

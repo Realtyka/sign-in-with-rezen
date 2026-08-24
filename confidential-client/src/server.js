@@ -295,66 +295,177 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 .panel-dark .panel-copy,
 .panel-dark .caption { color: var(--seaglass); }
 
-/* ---- the button: reZEN's button language, scaled to a call to action ---- */
+/* ---- the button: the reZEN sign-in button ----
+ * Two variants (filled, outline), three fill styles (navy — the default —,
+ * rezen, neutral), four sizes (xs, s, m, l) and the states hover, pressed,
+ * loading and disabled. Fill styles and sizes are custom properties on a
+ * modifier class, so one rule set draws every combination. The outline
+ * variant is the same in every fill style. These colours belong to the
+ * button and to nothing else on the page. */
 .cta { margin: 0; }
 
+.rezen-btn,
+.rezen-btn.navy {
+  --rezen-btn-fill: #050e3d;
+  --rezen-btn-fill-hover: #171c4f;
+  --rezen-btn-fill-active: #273288;
+}
+.rezen-btn.rezen {
+  --rezen-btn-fill: #4967fd;
+  --rezen-btn-fill-hover: #3848f3;
+  --rezen-btn-fill-active: #2c39d6;
+}
+.rezen-btn.neutral {
+  --rezen-btn-fill: #000000;
+  --rezen-btn-fill-hover: #1e293b;
+  --rezen-btn-fill-active: #334155;
+}
+
+/* Sizes: height, inset from the outer edge (the 1px border is inside it),
+ * label size, wordmark height, and the gap between label, wordmark and
+ * spinner. Medium is the default. */
+.rezen-btn,
+.rezen-btn.m {
+  --rezen-btn-height: 44px;
+  --rezen-btn-padding: 0 15px;
+  --rezen-btn-font-size: 16px;
+  --rezen-btn-logo: 24px;
+  --rezen-btn-gap: 8px;
+}
+.rezen-btn.xs {
+  --rezen-btn-height: 28px;
+  --rezen-btn-padding: 0 11px 0 7px;
+  --rezen-btn-font-size: 14px;
+  --rezen-btn-logo: 18px;
+  --rezen-btn-gap: 4px;
+}
+.rezen-btn.s {
+  --rezen-btn-height: 38px;
+  --rezen-btn-padding: 0 15px;
+  --rezen-btn-font-size: 14px;
+  --rezen-btn-logo: 20px;
+  --rezen-btn-gap: 6px;
+}
+.rezen-btn.l {
+  --rezen-btn-height: 52px;
+  --rezen-btn-padding: 0 23px;
+  --rezen-btn-font-size: 18px;
+  --rezen-btn-logo: 24px;
+  --rezen-btn-gap: 8px;
+}
+
 .rezen-btn {
+  --rezen-btn-outline-bg: #ffffff;
+  --rezen-btn-outline-bg-hover: #f8fafc;
+  --rezen-btn-outline-bg-active: #f1f5f9;
+  --rezen-btn-outline-border: #e2e8f0;
+  --rezen-btn-outline-border-hover: #cbd5e1;
+  --rezen-btn-outline-ink: #020617;
+
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  height: 52px;
-  padding: 0 22px;
-  border-radius: 8px;
-  border: 2px solid var(--onyx);
+  gap: var(--rezen-btn-gap);
+  box-sizing: border-box;
+  height: var(--rezen-btn-height);
+  padding: var(--rezen-btn-padding);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-family: var(--font-family-body);
+  font-size: var(--rezen-btn-font-size);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease,
-    border-color .18s ease, color .18s ease;
+  transition: background-color .15s ease, border-color .15s ease;
 }
-.rezen-btn-label {
-  font-family: var(--font-family-body);
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -.005em;
-  white-space: nowrap;
-  transition: color .18s ease;
-}
-/* The wordmark is the word — the two assets are stacked and cross-faded so
- * the SVG itself is never recoloured. */
-.rezen-btn-logo { position: relative; display: block; height: 26px; }
-.rezen-btn-logo img { display: block; height: 26px; width: auto; transition: opacity .18s ease; }
-.rezen-btn-logo img.swap { position: absolute; top: 0; left: 0; opacity: 0; }
-.rezen-btn:hover .rezen-btn-logo img.rest { opacity: 0; }
-.rezen-btn:hover .rezen-btn-logo img.swap { opacity: 1; }
+.rezen-btn-label { color: inherit; }
+/* The wordmark is an image, never recoloured: the white asset on the filled
+ * variant, the black asset on the outline variant. */
+.rezen-btn-logo { display: block; height: var(--rezen-btn-logo); width: auto; }
 .rezen-btn:focus-visible { outline: 2px solid var(--legacy-blue); outline-offset: 3px; }
 
-/* on a light background: Chalk with an Onyx line, filling Cobalt on hover */
-.rezen-btn.on-light { background: var(--chalk); color: var(--onyx); }
-.rezen-btn.on-light .rezen-btn-label { color: var(--onyx); }
-.rezen-btn.on-light:hover {
-  background: var(--cobalt);
-  border-color: var(--cobalt);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px -6px rgba(5, 14, 61, .4);
-}
-.rezen-btn.on-light:hover .rezen-btn-label { color: var(--chalk); }
-
-/* on Cobalt: open, with a Chalk line, filling Chalk on hover */
-.rezen-btn.on-dark {
-  background: transparent;
-  border-color: var(--chalk);
+.rezen-btn.filled {
+  background: var(--rezen-btn-fill);
+  border-color: var(--rezen-btn-fill);
   color: var(--chalk);
 }
-.rezen-btn.on-dark .rezen-btn-label { color: var(--chalk); }
-.rezen-btn.on-dark:hover {
-  background: var(--chalk);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 22px -6px rgba(191, 221, 219, .45);
+.rezen-btn.filled:hover {
+  background: var(--rezen-btn-fill-hover);
+  border-color: var(--rezen-btn-fill-hover);
 }
-.rezen-btn.on-dark:hover .rezen-btn-label { color: var(--cobalt); }
+.rezen-btn.filled:active {
+  background: var(--rezen-btn-fill-active);
+  border-color: var(--rezen-btn-fill-active);
+}
+.rezen-btn.outline {
+  background: var(--rezen-btn-outline-bg);
+  border-color: var(--rezen-btn-outline-border);
+  color: var(--rezen-btn-outline-ink);
+}
+.rezen-btn.outline:hover {
+  background: var(--rezen-btn-outline-bg-hover);
+  border-color: var(--rezen-btn-outline-border-hover);
+}
+.rezen-btn.outline:active {
+  background: var(--rezen-btn-outline-bg-active);
+  border-color: var(--rezen-btn-outline-border-hover);
+}
 
-.rezen-btn:active { transform: translateY(0); box-shadow: none; }
+/* Loading and disabled: the resting colours at half opacity. Loading adds a
+ * spinner on the left and takes the pointer away; set aria-busy with it. */
+.rezen-btn.is-loading,
+.rezen-btn:disabled,
+.rezen-btn[aria-disabled="true"] { opacity: .5; }
+.rezen-btn:disabled,
+.rezen-btn[aria-disabled="true"] { cursor: default; }
+.rezen-btn.is-loading { pointer-events: none; }
+.rezen-btn.filled.is-loading,
+.rezen-btn.filled:disabled,
+.rezen-btn.filled[aria-disabled="true"] {
+  background: var(--rezen-btn-fill);
+  border-color: var(--rezen-btn-fill);
+}
+.rezen-btn.outline.is-loading,
+.rezen-btn.outline:disabled,
+.rezen-btn.outline[aria-disabled="true"] {
+  background: var(--rezen-btn-outline-bg);
+  border-color: var(--rezen-btn-outline-border);
+}
+.rezen-btn.is-loading::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  animation: rezen-btn-spin .8s linear infinite;
+}
+@keyframes rezen-btn-spin {
+  to { transform: rotate(1turn); }
+}
+/* A specimen: drawn like the button, but not one — no pointer, no states. */
+.rezen-btn.specimen { pointer-events: none; }
+
+/* Under each call to action: the other two fill styles of the same variant. */
+.styles { margin: 22px 0 0; }
+.styles-label {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-family: var(--font-family-mono);
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.panel-dark .styles-label { color: var(--seaglass); }
+.styles-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
 /* ---- values the flow returns: always mono ---- */
 table.kv {
@@ -526,17 +637,26 @@ function scopeChips(scope) {
     .join('')}</ul>`;
 }
 
-// The button is "Login with" followed by the wordmark itself — the logo is
-// the word. Each variant carries both assets and cross-fades to the other on
-// hover, as the fill inverts: black to white on a light background, white to
-// black on a dark one.
-function loginButton(variant) {
-  const [rest, swap] = variant === 'on-dark' ? ['white', 'black'] : ['black', 'white'];
-  const logo = `<img class="rest" src="/rezen-logo-${rest}.svg" alt="reZEN">`
-    + `<img class="swap" src="/rezen-logo-${swap}.svg" alt="" aria-hidden="true">`;
-  return `<a class="rezen-btn ${variant}" href="/login" aria-label="Login with reZEN">`
-    + '<span class="rezen-btn-label">Login with</span>'
-    + `<span class="rezen-btn-logo">${logo}</span></a>`;
+// The button is "Sign In With" followed by the wordmark itself: the white
+// asset on the filled variant, the black asset on the outline variant. The
+// page has no script (its policy allows none), so the link is a plain link —
+// the loading and disabled states are in the stylesheet for an app that has
+// somewhere to set them.
+function loginButton(variant, style = 'navy', size = 'l') {
+  const logo = variant === 'filled' ? 'white' : 'black';
+  return `<a class="rezen-btn ${variant} ${style} ${size}" href="/login" aria-label="Login with reZEN">`
+    + '<span class="rezen-btn-label">Sign In With</span>'
+    + `<img class="rezen-btn-logo" src="/rezen-logo-${logo}.svg" alt="reZEN"></a>`;
+}
+
+// The other two fill styles of the same variant, drawn but not live.
+function otherStyles(variant) {
+  const logo = variant === 'filled' ? 'white' : 'black';
+  const specimen = (style) => `<span class="rezen-btn specimen ${variant} ${style} s">`
+    + '<span class="rezen-btn-label">Sign In With</span>'
+    + `<img class="rezen-btn-logo" src="/rezen-logo-${logo}.svg" alt=""></span>`;
+  return '<div class="styles" aria-hidden="true"><p class="styles-label">Other fill styles</p>'
+    + `<div class="styles-row">${specimen('rezen')}${specimen('neutral')}</div></div>`;
 }
 
 function homePage(sessionData) {
@@ -583,8 +703,9 @@ function homePage(sessionData) {
         <h1>Login with reZEN</h1>
         <p class="panel-copy">This sample runs the authorization code flow with PKCE against a
         reZEN OIDC issuer, verifies your identity, and calls one Real API on your behalf.</p>
-        <p class="cta">${loginButton('on-light')}</p>
+        <p class="cta">${loginButton('filled')}</p>
         <p class="caption">Sign in with your reZEN account to continue</p>
+        ${otherStyles('filled')}
       </div>
       <div class="panel panel-dark reveal">
         <img class="panel-logo" src="/rezen-logo-white.svg" alt="reZEN">
@@ -592,8 +713,9 @@ function homePage(sessionData) {
         <h2 class="display">Login with reZEN</h2>
         <p class="panel-copy">The same flow, the same client, the same button — drawn for a dark
         page. Either button starts the sign-in.</p>
-        <p class="cta">${loginButton('on-dark')}</p>
+        <p class="cta">${loginButton('outline')}</p>
         <p class="caption">Sign in with your reZEN account to continue</p>
+        ${otherStyles('outline')}
       </div>
     </div>
   `, 'wide');
