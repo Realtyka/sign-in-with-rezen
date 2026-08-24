@@ -167,8 +167,8 @@ async function completeAndRender(session) {
   renderSignedIn(mirror);
 }
 
-// The scopes that release identity claims are shown in ink; everything else
-// is a data scope on the Real API, shown in blue.
+// The scopes that release identity claims are shown Onyx on Chalk; everything
+// else is a data scope on the Real API, shown Cobalt on Seaglass.
 const IDENTITY_SCOPES = new Set(['openid', 'profile', 'email', 'real.identity']);
 
 function scopeChip(scope) {

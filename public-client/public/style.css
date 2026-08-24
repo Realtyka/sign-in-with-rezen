@@ -1,25 +1,33 @@
 /* Login with reZEN — sample client.
  *
- * Editorial minimalism on the reZEN brand tokens (ink #1d1d1d, blue #4967fd,
- * paper #fbfbfa): a paper ground with a soft blue wash and a barely-there
- * grain, a serif display face paired with mono for every value the flow
- * returns, and one accent colour. Self-contained by design — no webfonts, no
- * icon sets, no external request of any kind. The page renders offline.
+ * Two sheets on the reZEN brand palette: Chalk carrying Onyx type with Slate
+ * for the quiet lines and Seaglass for every rule, and Cobalt carrying Chalk.
+ * Headlines in the brand grotesk, body in its companion sans, and mono for
+ * every value the flow returns. The accents stay small: Legacy Blue on focus
+ * and progress, Aqua where the progress bar lands, Coral once or twice a page.
+ * Self-contained by design — no webfonts, no icon sets, no external request
+ * of any kind. The page renders offline.
  */
 
 :root {
-  --ink: #1d1d1d;
-  --muted: #52525b;
-  --blue: #4967fd;
-  --paper: #fbfbfa;
-  --hairline: #e4e4e7;
-  --card: #ffffff;
-  /* reZEN button tokens */
-  --btn-ink: #282826;
-  --btn-ink-border: #3e3f3c;
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif;
+  /* brand palette */
+  --chalk: #ffffff;
+  --cobalt: #050e3d;
+  --seaglass: #bfdddb;
+  --slate: #615b56;
+  --onyx: #1d1d1d;
+  --coral: #ff557e;
+  --legacy-blue: #05c3f9;
+  --aqua: #00fbf0;
+
+  --ink: var(--onyx);
+  --muted: var(--slate);
+  --rule: var(--seaglass);
+  --ground: var(--chalk);
+
+  --font-family-head: "Telegraf", "Poppins", "Inter", Arial, sans-serif;
+  --font-family-body: "Inter", Arial, sans-serif;
+  --font-family-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -30,43 +38,14 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: 17px;
+  font-family: var(--font-family-body);
+  font-size: 16px;
   line-height: 1.6;
-  background-color: var(--paper);
+  background-color: var(--ground);
+  /* a soft Seaglass wash off the top corner, and nothing else on the ground */
   background-image:
-    radial-gradient(820px 620px at 92% -10%, rgba(73, 103, 253, .16), rgba(73, 103, 253, 0) 60%),
-    radial-gradient(680px 520px at -12% 110%, rgba(73, 103, 253, .08), rgba(73, 103, 253, 0) 58%);
+    radial-gradient(clamp(520px, 70vw, 900px) clamp(340px, 60vh, 620px) at 100% -12%, rgba(191, 221, 219, .34), rgba(191, 221, 219, 0) 62%);
   background-attachment: fixed;
-}
-
-/* Two inert layers behind the content: a fine grain, and the wordmark
- * ghosted into the bottom-right corner and cropped by the viewport. Both
- * are drawn from local sources — the grain is an inline SVG data URI. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: .22;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.55'/%3E%3C/svg%3E");
-}
-body::after {
-  content: "";
-  position: fixed;
-  right: -6vw;
-  bottom: -5vh;
-  width: 34vw;
-  max-width: 400px;
-  aspect-ratio: 361 / 133;
-  z-index: 0;
-  pointer-events: none;
-  opacity: .045;
-  background: url("/rezen-logo-black.svg") no-repeat right center / 180% auto;
-}
-@media (max-width: 760px) {
-  body::after { display: none; }
 }
 
 /* ---- layout: one content column, offset left, wide margin to the right ---- */
@@ -92,31 +71,33 @@ body::after {
 }
 
 /* ---- type ---- */
+/* The page mark keeps clear space of at least its own height on every side. */
 .brandmark {
   display: block;
   height: 40px;
   width: auto;
-  margin: 0 0 30px;
+  margin: 0 0 40px;
 }
-.brandmark.sm { height: 26px; margin-bottom: 22px; }
+.brandmark.sm { height: 26px; margin-bottom: 30px; }
 
 h1 {
   margin: 0 0 18px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(2.35rem, 6.4vw, 3.35rem);
-  letter-spacing: -.028em;
-  line-height: 1.03;
+  font-family: var(--font-family-head);
+  font-weight: 600;
+  font-size: clamp(2.25rem, 6vw, 3.25rem);
+  letter-spacing: -.03em;
+  line-height: 1.02;
+  text-wrap: balance;
 }
 h1.sm {
-  font-size: clamp(1.85rem, 4.6vw, 2.45rem);
+  font-size: clamp(1.8rem, 4.4vw, 2.35rem);
   margin-bottom: 28px;
 }
 
 .caption {
   margin: 18px 0 0;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-size: .78rem;
 }
 .error-text {
@@ -129,19 +110,20 @@ h1.sm {
   margin: 18px 0 0;
   min-height: 1.2em;
   text-align: center;
-  color: var(--blue);
-  font-family: var(--mono);
+  color: var(--cobalt);
+  font-family: var(--font-family-mono);
   font-size: .78rem;
 }
 
-/* Section labels: a short blue tick, mono small caps, a hairline to the edge. */
+/* Section labels: a short Cobalt tick, mono small caps, a Seaglass rule to
+ * the edge. */
 .section-label {
   display: flex;
   align-items: center;
   gap: 12px;
   margin: 44px 0 16px;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-weight: 500;
   font-size: .69rem;
   letter-spacing: .16em;
@@ -151,36 +133,44 @@ h1.sm {
   content: "";
   width: 14px;
   height: 2px;
-  background: var(--blue);
+  background: var(--cobalt);
   flex: none;
 }
 .section-label::after {
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--hairline);
+  background: var(--rule);
 }
 
 p { margin: 0 0 16px; }
 
 a {
-  color: var(--blue);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(73, 103, 253, .3);
+  color: var(--cobalt);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgba(5, 14, 61, .3);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
 }
-a:hover { border-bottom-color: var(--blue); }
+a:hover {
+  text-decoration-color: var(--coral);
+  text-decoration-thickness: 2px;
+}
 a:focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--legacy-blue);
   outline-offset: 3px;
   border-radius: 2px;
 }
 a.quiet {
   color: var(--muted);
-  border-bottom-color: var(--hairline);
-  font-family: var(--mono);
+  font-weight: 400;
+  font-family: var(--font-family-mono);
   font-size: .78rem;
+  text-decoration-color: var(--rule);
 }
-a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
+a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 
 /* ---- the two landing samples ---- */
 .panels {
@@ -194,35 +184,43 @@ a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
 .panel {
   position: relative;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 12px;
   padding: clamp(28px, 3.4vw, 44px);
 }
 .panel > * { position: relative; z-index: 1; }
-.panel-light {
-  background: transparent;
-  border: 1px solid var(--hairline);
-}
-.panel-dark {
-  border: 1px solid var(--btn-ink-border);
-  background-color: var(--ink);
-  background-image: radial-gradient(520px 380px at 88% -14%, rgba(73, 103, 253, .3), rgba(73, 103, 253, 0) 62%);
-  color: #fff;
-}
-/* the same grain as the paper ground, over the dark panel */
-.panel-dark::before {
+/* A fine Seaglass drafting grid rises out of the top corner of each sheet and
+ * fades before it reaches the copy. The same grid on both — it is the one
+ * thing the two panels share besides the button. The mask only uses the
+ * gradient's alpha, so it is drawn in Cobalt like everything else. */
+.panel::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: .3;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)' opacity='0.55'/%3E%3C/svg%3E");
+  background-image:
+    repeating-linear-gradient(0deg, var(--grid) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 28px);
+  -webkit-mask-image: radial-gradient(560px 360px at 100% 0%, var(--cobalt) 0%, transparent 72%);
+  mask-image: radial-gradient(560px 360px at 100% 0%, var(--cobalt) 0%, transparent 72%);
 }
-.panel-logo { display: block; height: 24px; width: auto; margin: 0 0 20px; }
+.panel-light {
+  --grid: rgba(191, 221, 219, .75);
+  background: var(--chalk);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+}
+.panel-dark {
+  --grid: rgba(191, 221, 219, .16);
+  background-color: var(--cobalt);
+  background-image: radial-gradient(520px 380px at 88% -14%, rgba(191, 221, 219, .22), rgba(191, 221, 219, 0) 62%);
+  color: var(--chalk);
+}
+.panel-logo { display: block; height: 24px; width: auto; margin: 0 0 28px; }
 .panel-kicker {
   margin: 0 0 10px;
   color: var(--muted);
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-size: .68rem;
   letter-spacing: .16em;
   text-transform: uppercase;
@@ -230,12 +228,13 @@ a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
 .panel h1,
 .panel .display {
   margin: 0 0 14px;
-  font-family: var(--serif);
-  font-weight: 400;
-  font-size: clamp(2rem, 3.4vw, 2.6rem);
-  letter-spacing: -.028em;
-  line-height: 1.05;
+  font-family: var(--font-family-head);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 3.2vw, 2.5rem);
+  letter-spacing: -.03em;
+  line-height: 1.04;
   text-transform: none;
+  text-wrap: balance;
   display: block;
   color: inherit;
 }
@@ -246,9 +245,9 @@ a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
   font-size: 1rem;
   text-wrap: pretty;
 }
-.panel-dark .panel-kicker { color: rgba(255, 255, 255, .5); }
-.panel-dark .panel-copy { color: rgba(255, 255, 255, .62); }
-.panel-dark .caption { color: rgba(255, 255, 255, .5); }
+.panel-dark .panel-kicker,
+.panel-dark .panel-copy,
+.panel-dark .caption { color: var(--seaglass); }
 
 /* ---- the button: reZEN's button language, scaled to a call to action ---- */
 .cta { margin: 0; }
@@ -260,14 +259,14 @@ a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
   height: 52px;
   padding: 0 22px;
   border-radius: 8px;
-  border: 2px solid var(--btn-ink);
+  border: 2px solid var(--onyx);
   text-decoration: none;
   cursor: pointer;
   transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease,
     border-color .18s ease, color .18s ease;
 }
 .rezen-btn-label {
-  font-family: var(--sans);
+  font-family: var(--font-family-body);
   font-size: 16px;
   font-weight: 600;
   line-height: 1;
@@ -280,56 +279,55 @@ a.quiet:hover { color: var(--ink); border-bottom-color: var(--muted); }
 .rezen-btn-logo { position: relative; display: block; height: 26px; }
 .rezen-btn-logo img { display: block; height: 26px; width: auto; transition: opacity .18s ease; }
 .rezen-btn-logo img.swap { position: absolute; top: 0; left: 0; opacity: 0; }
-.rezen-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.rezen-btn:hover .rezen-btn-logo img.rest { opacity: 0; }
+.rezen-btn:hover .rezen-btn-logo img.swap { opacity: 1; }
+.rezen-btn:focus-visible { outline: 2px solid var(--legacy-blue); outline-offset: 3px; }
 
-/* on a light background: outlined, inverting on hover */
-.rezen-btn.on-light { background: #fff; color: var(--btn-ink); }
-.rezen-btn.on-light .rezen-btn-label { color: var(--btn-ink); }
+/* on a light background: Chalk with an Onyx line, filling Cobalt on hover */
+.rezen-btn.on-light { background: var(--chalk); color: var(--onyx); }
+.rezen-btn.on-light .rezen-btn-label { color: var(--onyx); }
 .rezen-btn.on-light:hover {
-  background: var(--btn-ink);
+  background: var(--cobalt);
+  border-color: var(--cobalt);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px -6px rgba(40, 40, 38, .38);
+  box-shadow: 0 8px 20px -6px rgba(5, 14, 61, .4);
 }
-.rezen-btn.on-light:hover .rezen-btn-label { color: #fff; }
-.rezen-btn.on-light:hover .rezen-btn-logo img.rest { opacity: 0; }
-.rezen-btn.on-light:hover .rezen-btn-logo img.swap { opacity: 1; }
+.rezen-btn.on-light:hover .rezen-btn-label { color: var(--chalk); }
 
-/* on a dark background: dark fill, the border coming up to white */
+/* on Cobalt: open, with a Chalk line, filling Chalk on hover */
 .rezen-btn.on-dark {
-  background: var(--btn-ink);
-  border-color: var(--btn-ink-border);
-  color: #fff;
+  background: transparent;
+  border-color: var(--chalk);
+  color: var(--chalk);
 }
-.rezen-btn.on-dark .rezen-btn-label { color: #fff; }
+.rezen-btn.on-dark .rezen-btn-label { color: var(--chalk); }
 .rezen-btn.on-dark:hover {
-  border-color: #fff;
+  background: var(--chalk);
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px -6px rgba(73, 103, 253, .55);
+  box-shadow: 0 8px 22px -6px rgba(191, 221, 219, .45);
 }
+.rezen-btn.on-dark:hover .rezen-btn-label { color: var(--cobalt); }
 
 .rezen-btn:active { transform: translateY(0); box-shadow: none; }
 .rezen-btn:disabled { opacity: .45; cursor: default; }
-.rezen-btn:disabled:hover {
-  transform: none;
-  box-shadow: none;
-  background: #fff;
-  border-color: var(--btn-ink);
-}
-.rezen-btn.on-dark:disabled:hover { background: var(--btn-ink); border-color: var(--btn-ink-border); }
-.rezen-btn.on-light:disabled:hover .rezen-btn-label { color: var(--btn-ink); }
-.rezen-btn.on-light:disabled:hover .rezen-btn-logo img.rest { opacity: 1; }
-.rezen-btn.on-light:disabled:hover .rezen-btn-logo img.swap { opacity: 0; }
+.rezen-btn:disabled:hover { transform: none; box-shadow: none; }
+.rezen-btn:disabled:hover .rezen-btn-logo img.rest { opacity: 1; }
+.rezen-btn:disabled:hover .rezen-btn-logo img.swap { opacity: 0; }
+.rezen-btn.on-light:disabled:hover { background: var(--chalk); border-color: var(--onyx); }
+.rezen-btn.on-light:disabled:hover .rezen-btn-label { color: var(--onyx); }
+.rezen-btn.on-dark:disabled:hover { background: transparent; }
+.rezen-btn.on-dark:disabled:hover .rezen-btn-label { color: var(--chalk); }
 
 /* ---- values the flow returns: always mono ---- */
 table.kv {
   border-collapse: collapse;
   width: 100%;
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-size: .82rem;
 }
 table.kv td {
   padding: 11px 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--rule);
   vertical-align: top;
 }
 table.kv tr:last-child td { border-bottom: 0; }
@@ -341,12 +339,14 @@ table.kv td:first-child {
 table.kv td:last-child { word-break: break-word; }
 
 .card {
-  background: var(--card);
-  border: 1px solid var(--hairline);
+  background: var(--chalk);
+  border: 1px solid var(--rule);
   border-radius: 8px;
   padding: 4px 18px;
 }
 
+/* Identity scopes sit Onyx on Chalk; data scopes on the Real API sit Cobalt
+ * on Seaglass. */
 ul.chips {
   display: flex;
   flex-wrap: wrap;
@@ -357,33 +357,33 @@ ul.chips {
 }
 .chip {
   padding: 5px 12px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--rule);
   border-radius: 999px;
-  background: var(--card);
+  background: var(--chalk);
   color: var(--ink);
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-size: .74rem;
   letter-spacing: .02em;
   white-space: nowrap;
 }
 .chip.data {
-  color: var(--blue);
-  border-color: rgba(73, 103, 253, .35);
-  background: rgba(73, 103, 253, .05);
+  color: var(--cobalt);
+  border-color: var(--seaglass);
+  background: var(--seaglass);
 }
 
-/* ---- what happened: a timeline, one tick per step ---- */
+/* ---- what happened: a timeline, one Cobalt tick per step ---- */
 ol.steps {
   list-style: none;
   margin: 0;
   padding: 2px 0 2px 26px;
-  border-left: 1px solid var(--hairline);
+  border-left: 1px solid var(--rule);
 }
 ol.steps li {
   position: relative;
   margin: 0 0 14px;
   color: var(--ink);
-  font-family: var(--mono);
+  font-family: var(--font-family-mono);
   font-size: .78rem;
   line-height: 1.55;
 }
@@ -397,21 +397,33 @@ ol.steps li::before {
   height: 18px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--rule);
   border-radius: 50%;
-  background: var(--paper);
-  color: var(--blue);
+  background: var(--chalk);
+  color: var(--cobalt);
   font-size: .62rem;
+  font-weight: 700;
   line-height: 1;
 }
 ol.steps li.warn::before {
   content: "!";
-  color: var(--muted);
+  color: var(--coral);
+  border-color: var(--coral);
 }
 
 .logout { margin: 44px 0 0; }
 
-/* ---- the popup: 520x720, so the column centres and the ghost stays out ---- */
+/* ---- failure: one short Coral rule above the headline ---- */
+.error-rule {
+  display: block;
+  width: 36px;
+  height: 3px;
+  margin: 0 0 22px;
+  border-radius: 999px;
+  background: var(--coral);
+}
+
+/* ---- the popup: 520x720, so the column centres ---- */
 .signing .wrap {
   min-height: 100vh;
   display: flex;
@@ -421,8 +433,10 @@ ol.steps li.warn::before {
 }
 .signing .col { margin-left: 0; }
 .signing h1 { font-size: clamp(1.9rem, 6vw, 2.35rem); }
-.signing .message { margin: 0; color: var(--muted); font-family: var(--mono); font-size: .8rem; }
+.signing .message { margin: 0; color: var(--muted); font-family: var(--font-family-mono); font-size: .8rem; }
 .signing .restart { display: none; margin: 24px 0 0; }
+.signing .error-rule { display: none; }
+.signing.is-error .error-rule { display: block; }
 .signing.is-error .message { color: var(--ink); }
 .signing.is-error .progress { display: none; }
 .signing.is-error .restart { display: block; }
@@ -435,7 +449,7 @@ ol.steps li.warn::before {
   height: 3px;
   margin: 28px 0 0;
   border-radius: 999px;
-  background: var(--hairline);
+  background: var(--rule);
 }
 .progress::after {
   content: "";
@@ -445,7 +459,7 @@ ol.steps li.warn::before {
   left: 0;
   width: 38%;
   border-radius: 999px;
-  background: var(--blue);
+  background: linear-gradient(90deg, var(--legacy-blue), var(--aqua));
   animation: slide 1.25s ease-in-out infinite;
 }
 @keyframes slide {
