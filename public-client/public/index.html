@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login with reZEN</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <section id="signed-out">
+    <h1>Login with reZEN</h1>
+    <p>This sample runs the authorization code flow with PKCE entirely in the browser,
+    verifies your identity, and calls one Real API on your behalf.</p>
+    <p><button id="login-button" class="button" type="button" disabled>Login with reZEN</button></p>
+    <p id="status" class="muted"></p>
+  </section>
+
+  <section id="signed-in" hidden>
+    <h1>Signed in with reZEN</h1>
+    <h2>Identity</h2>
+    <table class="kv">
+      <tr><td>sub</td><td id="id-sub"></td></tr>
+      <tr><td>name</td><td id="id-name"></td></tr>
+      <tr><td>email</td><td id="id-email"></td></tr>
+      <tr><td>yentaId</td><td id="id-yentaid"></td></tr>
+    </table>
+    <h2>Granted scope</h2>
+    <p><code id="id-scope"></code></p>
+    <h2>Profile</h2>
+    <table class="kv" id="profile-table" hidden>
+      <tr><td>displayName</td><td id="profile-displayname"></td></tr>
+      <tr><td>type</td><td id="profile-type"></td></tr>
+    </table>
+    <p id="profile-skip" class="muted" hidden></p>
+    <h2>What happened</h2>
+    <ol id="steps" class="steps"></ol>
+    <p><a id="logout-link" href="#">Log out</a></p>
+  </section>
+
+  <section id="error-box" hidden>
+    <h1>Sign-in failed</h1>
+    <p id="error-message"></p>
+    <p><a href="/">Start again</a></p>
+  </section>
+
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

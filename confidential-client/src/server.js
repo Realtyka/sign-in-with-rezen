@@ -81,7 +81,7 @@ function homePage(sessionData) {
         + `<tr><td>displayName</td><td>${escapeHtml(String(sessionData.profile.displayName))}</td></tr>`
         + `<tr><td>type</td><td>${escapeHtml(String(sessionData.profile.type))}</td></tr>`
         + `</table>`
-      : `<h2>Profile</h2><p class="muted">Skipped — no yentaId claim was released for the granted scopes.</p>`;
+      : `<h2>Profile</h2><p class="muted">The /me call did not return a result — see the steps above.</p>`;
     const steps = (sessionData.steps || []).map((s) => `<li>${escapeHtml(s)}</li>`).join('');
     return layout('Signed in with reZEN', `
       <h1>Signed in with reZEN</h1>
@@ -242,27 +242,27 @@ export function createServer(config) {
         const accessToken = tokenRes.body.access_token;
         const steps = ['Code exchanged for tokens', 'ID token verified (RS256, nonce checked)'];
 
+        // Identity comes from /userinfo — the id_token proves who signed in
+        // (sub), /userinfo carries the claims the granted scopes release.
         const userinfoRes = await userinfo(discovery, accessToken);
         steps.push(userinfoRes.status === 200 ? 'Userinfo fetched' : `Userinfo call failed (HTTP ${userinfoRes.status})`);
+        const identity = userinfoRes.status === 200 && typeof userinfoRes.body === 'object'
+          ? { ...claims, ...userinfoRes.body }
+          : claims;
 
         let profile;
-        const yentaId = claims.yentaId;
-        if (yentaId) {
-          const profileRes = await apiCall(config.apiBase, `/api/v2/users/${yentaId}/profile`, accessToken);
-          if (profileRes.status === 200) {
-            profile = {
-              displayName: profileRes.body.displayName ?? '(not present)',
-              type: profileRes.body.type ?? '(not present)',
-            };
-            steps.push('Profile fetched with x-api-key (200)');
-          } else {
-            steps.push(`Profile call failed (HTTP ${profileRes.status})`);
-          }
+        const profileRes = await apiCall(config.apiBase, '/api/v1/users/me', accessToken);
+        if (profileRes.status === 200) {
+          profile = {
+            displayName: profileRes.body.displayName ?? '(not present)',
+            type: profileRes.body.type ?? '(not present)',
+          };
+          steps.push('Profile fetched from /me with x-api-key (200)');
         } else {
-          steps.push('Profile call skipped — no yentaId claim was released');
+          steps.push(`Profile call failed (HTTP ${profileRes.status})`);
         }
 
-        session.data.identity = { sub: claims.sub, name: claims.name, email: claims.email, yentaId };
+        session.data.identity = { sub: identity.sub, name: identity.name, email: identity.email, yentaId: identity.yentaId };
         session.data.scope = tokenRes.body.scope || '';
         session.data.profile = profile;
         session.data.steps = steps;

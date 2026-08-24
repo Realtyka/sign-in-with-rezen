@@ -185,8 +185,7 @@ async function startStub({ clientId, clientSecret }) {
 
   const apiServer = http.createServer((req, res) => {
     const url = new URL(req.url, apiUrl);
-    const match = url.pathname.match(/^\/api\/v2\/users\/([^/]+)\/profile$/);
-    if (req.method === 'GET' && match) {
+    if (req.method === 'GET' && url.pathname === '/api/v1/users/me') {
       assert.equal(req.headers.authorization, undefined, 'the API call must never send Authorization');
       const key = req.headers['x-api-key'];
       if (!key || !accessTokens.has(key)) return json(res, 401, { error: 'invalid_key' });
