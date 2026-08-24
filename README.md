@@ -18,7 +18,7 @@ vendor integration guide at
 | How the code exchange authenticates | Client secret + PKCE                            | PKCE alone                                                                                      |
 | Flow shape                        | Full-page redirect; the server handles the callback | Popup with a full-page redirect fallback; the browser handles the callback                     |
 | Where tokens live                 | Server-side session                               | Access token in memory with a per-tab `sessionStorage` mirror; refresh token in memory only, never persisted |
-| Environment prerequisite          | None beyond registration                          | The issuer must allow cross-origin requests from the app's origin to its token, JWKS, userinfo, and discovery endpoints |
+| Environment prerequisite          | None beyond registration                          | The issuer must allow cross-origin requests from the app's origin to its token, JWKS, userinfo, and discovery endpoints; the API host must allow the `x-api-key` header for that origin too |
 | Pick it when                      | You have a backend — the recommended choice whenever one exists | You have no backend that can hold a secret                                                      |
 
 If you have a backend, use the confidential client. A secret in a browser bundle or

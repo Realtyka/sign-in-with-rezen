@@ -48,11 +48,25 @@ async function refreshPkce() {
 }
 
 function onLoginClick() {
+  // A second click while the popup is already open would re-navigate that
+  // named window with a fresh state/nonce/verifier while the popup's own
+  // (cloned) copy of the stash still holds the first one — the callback
+  // then rejects its own state. Focus the existing popup instead of
+  // starting a second flow.
+  if (popupHandle && !popupHandle.closed) {
+    popupHandle.focus();
+    return;
+  }
+
   const state = randomToken();
   const nonce = randomToken();
   const { verifier, challenge } = currentPkce;
   pendingState = state;
-  sessionStorage.setItem(STASH_KEY, JSON.stringify({ state, nonce, verifier }));
+  // popup: true until the popup-blocked branch below overwrites it. This is
+  // how callback.js decides whether it's finishing a popup flow — reading
+  // window.opener or window.name isn't reliable once the issuer's pages set
+  // Cross-Origin-Opener-Policy: same-origin (see the README).
+  sessionStorage.setItem(STASH_KEY, JSON.stringify({ state, nonce, verifier, popup: true }));
 
   const url = authorizeUrl(discovery, {
     clientId: config.clientId,
@@ -82,17 +96,20 @@ function onLoginClick() {
       clearInterval(popupWatcher);
       popupWatcher = undefined;
       if (popupHandle === popup) popupHandle = undefined;
-      // Only clear the pending flow if it's still this one — a result may
-      // already have arrived and closed the popup itself.
-      if (pendingState === state) {
-        pendingState = undefined;
-        sessionStorage.removeItem(STASH_KEY);
-        $('status').textContent = '';
-      }
+      // Only the status message is cleared here. Under
+      // Cross-Origin-Opener-Policy, popup.closed reports true the moment the
+      // popup navigates to the issuer — long before it has a result to
+      // deliver — so this is not evidence the flow is over. Clearing
+      // pendingState or the stash here would make handleResult() ignore a
+      // correct result that is still on its way over the BroadcastChannel.
+      $('status').textContent = '';
     }, POPUP_CLOSE_POLL_MS);
   } else {
     // Popup blocked — fall back to a full-page redirect through the same
-    // authorize URL and the same callback page.
+    // authorize URL and the same callback page. Overwrite the stash so
+    // callback.js (which runs in this same tab next) knows this is the
+    // redirect fallback, not a popup.
+    sessionStorage.setItem(STASH_KEY, JSON.stringify({ state, nonce, verifier, popup: false }));
     location.assign(url);
   }
 }
@@ -151,12 +168,14 @@ async function completeAndRender(session) {
   let profile;
   try {
     const res = await apiCall(config.apiBase, '/api/v1/users/me', session.accessToken);
-    steps.push(`/me fetched with x-api-key (status ${res.status})`);
     if (res.status === 200) {
       profile = {
         displayName: res.body.displayName ?? '(not present)',
         type: res.body.type ?? '(not present)',
       };
+      steps.push('/me fetched with x-api-key (200)');
+    } else {
+      steps.push(`/me call failed (HTTP ${res.status})`);
     }
   } catch (err) {
     steps.push(`/me call failed (${err.message})`);

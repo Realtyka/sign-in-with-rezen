@@ -25,7 +25,11 @@ function base64UrlToJson(value) {
 export async function discover(issuer) {
   const res = await fetch(`${issuer}/.well-known/openid-configuration`);
   if (!res.ok) throw new Error(`discovery failed: HTTP ${res.status}`);
-  return res.json();
+  const doc = await res.json();
+  // OIDC Discovery 4.3 (MUST): the issuer in the document must exactly
+  // match the issuer this was requested from.
+  if (doc.issuer !== issuer) throw new Error('discovery issuer mismatch');
+  return doc;
 }
 
 // A random URL-safe token — used for state and nonce.
@@ -104,6 +108,10 @@ export async function verifyIdToken(idToken, { jwks, issuer, clientId, nonce }) 
   // OIDC Core 3.1.3.7: with more than one aud value, azp must name this client.
   if (aud.length > 1 && claims.azp !== clientId) {
     throw new Error('id_token azp must equal this client when aud has more than one value');
+  }
+  // Whenever azp is present at all, it must equal this client.
+  if (claims.azp !== undefined && claims.azp !== clientId) {
+    throw new Error('id_token azp must equal this client when present');
   }
 
   const now = Math.floor(Date.now() / 1000);

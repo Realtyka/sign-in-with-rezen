@@ -11,6 +11,7 @@ import { join } from 'node:path';
 
 import { loadConfig } from '../src/config.js';
 import { createServer } from '../src/server.js';
+import { discover } from '../src/oidc.js';
 
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -66,6 +67,7 @@ async function startStub({ clientId, clientSecret }) {
   const accessTokens = new Set();
   let tokenMode = 'ok';
   let userinfoMode = 'ok';
+  let discoveryMode = 'ok';
 
   function json(res, status, body) {
     res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -77,7 +79,7 @@ async function startStub({ clientId, clientSecret }) {
 
     if (req.method === 'GET' && url.pathname === '/.well-known/openid-configuration') {
       return json(res, 200, {
-        issuer: issuerUrl,
+        issuer: discoveryMode === 'bad-issuer' ? `${issuerUrl}/not-the-issuer` : issuerUrl,
         authorization_endpoint: `${issuerUrl}/authorize`,
         token_endpoint: `${issuerUrl}/token`,
         userinfo_endpoint: `${issuerUrl}/userinfo`,
@@ -131,7 +133,14 @@ async function startStub({ clientId, clientSecret }) {
       if (clientSecret) {
         assert.ok(authHeader && authHeader.startsWith('Basic '), 'confidential exchange must send Basic auth');
         const decoded = Buffer.from(authHeader.slice('Basic '.length), 'base64').toString();
-        assert.equal(decoded, `${clientId}:${clientSecret}`, 'Basic auth must carry client_id:client_secret');
+        // RFC 6749 §2.3.1: client_id and client_secret are each
+        // form-urlencoded before the ':' join — decode the same way, split
+        // on the FIRST ':' only (the secret itself may contain one).
+        const sep = decoded.indexOf(':');
+        const decodedId = decodeURIComponent(decoded.slice(0, sep).replace(/\+/g, ' '));
+        const decodedSecret = decodeURIComponent(decoded.slice(sep + 1).replace(/\+/g, ' '));
+        assert.equal(decodedId, clientId, 'Basic auth must carry the client_id, form-decoded');
+        assert.equal(decodedSecret, clientSecret, 'Basic auth must carry the client_secret, form-decoded');
         assert.equal(form.get('client_id'), null, 'confidential exchange must not also send client_id in the body');
       } else {
         assert.equal(authHeader, undefined, 'public exchange must not send an Authorization header');
@@ -142,17 +151,19 @@ async function startStub({ clientId, clientSecret }) {
       const accessToken = `real_test_${randomBytes(8).toString('hex')}`;
       accessTokens.add(accessToken);
       const now = Math.floor(Date.now() / 1000);
+      const multiAud = tokenMode === 'multi-aud-ok' || tokenMode === 'multi-aud-no-azp';
       const claims = {
         iss: issuerUrl,
-        aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : clientId,
+        aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : multiAud ? [clientId, 'other-client'] : clientId,
         sub: TEST_USER.sub,
-        exp: tokenMode === 'expired' ? now - 3600 : now + 3600,
-        iat: now,
+        exp: tokenMode === 'expired' ? now - 3600 : tokenMode === 'exp-leeway' ? now - 30 : now + 3600,
+        iat: tokenMode === 'future-iat' ? now + 3600 : now,
         nonce: tokenMode === 'bad-nonce' ? 'not-the-right-nonce' : entry.nonce,
         name: TEST_USER.name,
         email: TEST_USER.email,
         yentaId: TEST_USER.yentaId,
       };
+      if (tokenMode === 'multi-aud-ok') claims.azp = clientId;
       const idToken = tokenMode === 'bad-alg'
         ? signHS256('not-a-real-secret', { alg: 'HS256', typ: 'JWT' }, claims)
         : signRS256(privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
@@ -201,6 +212,7 @@ async function startStub({ clientId, clientSecret }) {
     apiUrl,
     setTokenMode(mode) { tokenMode = mode; },
     setUserinfoMode(mode) { userinfoMode = mode; },
+    setDiscoveryMode(mode) { discoveryMode = mode; },
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -259,6 +271,15 @@ async function runFlow(label, { clientSecret }) {
   assert.equal(homeRes.headers.get('x-frame-options'), 'DENY', `${label}: GET / should send X-Frame-Options: DENY`);
   assert.ok(homeRes.headers.get('content-security-policy'), `${label}: GET / should send a Content-Security-Policy header`);
   ok(`${label}: GET / sends security headers`);
+
+  stub.setDiscoveryMode('bad-issuer');
+  await assert.rejects(
+    () => discover(stub.issuerUrl),
+    undefined,
+    `${label}: discover() should reject a discovery document whose issuer does not match the requested issuer`,
+  );
+  stub.setDiscoveryMode('ok');
+  ok(`${label}: discover() rejects a discovery document whose issuer does not match the requested issuer`);
 
   // Drives one authorize -> callback round trip from a fresh session; returns
   // the cookie the callback should be called with and the callback URL the
@@ -369,6 +390,46 @@ async function runFlow(label, { clientSecret }) {
   stub.setTokenMode('ok');
   ok(`${label}: callback rejects an aud mismatch`);
 
+  // Negative: multiple aud values without azp naming this client is rejected.
+  stub.setTokenMode('multi-aud-no-azp');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: a multi-value aud without a matching azp should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects a multi-value aud without a matching azp`);
+
+  // Positive: multiple aud values with azp naming this client is accepted.
+  stub.setTokenMode('multi-aud-ok');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    assert.equal(res.status, 302, `${label}: a multi-value aud with a matching azp should still sign in`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback accepts a multi-value aud whose azp names this client`);
+
+  // Negative: an id_token issued in the future is rejected.
+  stub.setTokenMode('future-iat');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: an id_token with a future iat should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects an id_token whose iat is in the future`);
+
+  // Positive: an id_token that expired within the clock-skew leeway is accepted.
+  stub.setTokenMode('exp-leeway');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    assert.equal(res.status, 302, `${label}: an id_token within the clock-skew leeway should still sign in`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback accepts an id_token that expired within the clock-skew leeway`);
+
   // A token response that omits scope falls back to the requested scopes.
   stub.setTokenMode('no-scope');
   {
@@ -404,7 +465,10 @@ async function runFlow(label, { clientSecret }) {
   await stub.close();
 }
 
-await runFlow('confidential', { clientSecret: 'cs_test_supersecret123' });
+// Reserved characters (':', '%', '+', ' ') exercise the RFC 6749 §2.3.1
+// form-encoding round trip — the env parser trims only line ends, so none
+// of these need escaping in the .env file itself.
+await runFlow('confidential', { clientSecret: 'cs_test_p%ss:w+rd 1' });
 await runFlow('public', { clientSecret: '' });
 
 console.log(`smoke: ${checks} checks passed`);

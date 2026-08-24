@@ -46,12 +46,9 @@ async function run() {
   }
   const params = new URLSearchParams(location.search);
 
-  const errParam = params.get('error');
-  if (errParam) {
-    showFailure(mapAuthorizeError(errParam, params.get('error_description')));
-    return;
-  }
-
+  // state is checked before anything else in the query string is trusted —
+  // including error — so a crafted /callback?error=... link can't show this
+  // tab the issuer's error page for a sign-in it never started.
   const raw = sessionStorage.getItem(STASH_KEY);
   if (!raw) {
     showFailure('No sign-in in progress — start again from the main page.');
@@ -67,6 +64,12 @@ async function run() {
 
   if (params.get('state') !== stash.state) {
     showFailure('The state parameter did not match — start again.');
+    return;
+  }
+
+  const errParam = params.get('error');
+  if (errParam) {
+    showFailure(mapAuthorizeError(errParam, params.get('error_description')));
     return;
   }
   if (params.get('iss') !== config.issuer) {
@@ -122,11 +125,12 @@ async function run() {
   sessionStorage.removeItem(STASH_KEY);
   history.replaceState(null, '', location.pathname);
 
-  // window.open() names the popup's browsing context; a page that never
-  // had a popup opener falls back to that name check, so this is accurate
-  // even when Cross-Origin-Opener-Policy on the issuer's pages detached
-  // window.opener.
-  const wasPopup = Boolean(window.opener) || window.name === 'login-with-rezen';
+  // Cross-Origin-Opener-Policy: same-origin on the issuer's pages detaches
+  // window.opener when the popup navigates there, and can clear window.name
+  // along with it — neither is reliable evidence of how this flow started.
+  // app.js stashes popup: true (or false, in the popup-blocked fallback)
+  // before it ever navigates anywhere, so read it from there instead.
+  const wasPopup = stash.popup === true;
 
   // RFC 6749 §5.1: scope is OPTIONAL in the token response when it equals
   // the request — a compliant server may omit it entirely.

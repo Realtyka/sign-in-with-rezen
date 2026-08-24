@@ -71,7 +71,7 @@ const REDIRECT_URI = 'http://127.0.0.1:1/callback';
 
 function withCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'content-type, authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type, authorization, x-api-key');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 }
 
@@ -92,6 +92,7 @@ async function startStub() {
   const codes = new Map(); // code -> { codeChallenge, redirectUri, nonce, scope }
   const accessTokens = new Set();
   let tokenMode = 'ok';
+  let discoveryMode = 'ok';
 
   function json(res, status, body) {
     withCors(res);
@@ -111,7 +112,7 @@ async function startStub() {
 
       if (req.method === 'GET' && url.pathname === '/.well-known/openid-configuration') {
         return json(res, 200, {
-          issuer: issuerUrl,
+          issuer: discoveryMode === 'bad-issuer' ? `${issuerUrl}/not-the-issuer` : issuerUrl,
           authorization_endpoint: `${issuerUrl}/authorize`,
           token_endpoint: `${issuerUrl}/token`,
           userinfo_endpoint: `${issuerUrl}/userinfo`,
@@ -169,17 +170,19 @@ async function startStub() {
         const accessToken = `real_test_${randomBytes(8).toString('hex')}`;
         accessTokens.add(accessToken);
         const now = Math.floor(Date.now() / 1000);
+        const multiAud = tokenMode === 'multi-aud-ok' || tokenMode === 'multi-aud-no-azp';
         const claims = {
           iss: tokenMode === 'bad-iss' ? `${issuerUrl}/not-the-issuer` : issuerUrl,
-          aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : CLIENT_ID,
+          aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : multiAud ? [CLIENT_ID, 'other-client'] : CLIENT_ID,
           sub: TEST_USER.sub,
-          exp: tokenMode === 'expired' ? now - 60 : now + 3600,
-          iat: now,
+          exp: tokenMode === 'expired' ? now - 3600 : tokenMode === 'exp-leeway' ? now - 30 : now + 3600,
+          iat: tokenMode === 'future-iat' ? now + 3600 : now,
           nonce: tokenMode === 'bad-nonce' ? 'not-the-right-nonce' : entry.nonce,
           name: TEST_USER.name,
           email: TEST_USER.email,
           yentaId: TEST_USER.yentaId,
         };
+        if (tokenMode === 'multi-aud-ok') claims.azp = CLIENT_ID;
         const idToken = tokenMode === 'bad-alg'
           ? signHS256('not-a-real-secret', { alg: 'HS256', typ: 'JWT' }, claims)
           : signRS256(privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
@@ -239,6 +242,7 @@ async function startStub() {
     issuerUrl,
     apiUrl,
     setTokenMode(mode) { tokenMode = mode; },
+    setDiscoveryMode(mode) { discoveryMode = mode; },
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -284,6 +288,15 @@ async function testProtocol() {
   const discovery = await discover(stub.issuerUrl);
   assert.equal(discovery.token_endpoint, `${stub.issuerUrl}/token`);
   ok('discover() reads the endpoint list from the discovery document');
+
+  stub.setDiscoveryMode('bad-issuer');
+  await assert.rejects(
+    () => discover(stub.issuerUrl),
+    undefined,
+    'discover() should reject a discovery document whose issuer does not match the requested issuer',
+  );
+  stub.setDiscoveryMode('ok');
+  ok('discover() rejects a discovery document whose issuer does not match the requested issuer');
 
   const { verifier, challenge } = await pkce();
   assert.match(verifier, /^[A-Za-z0-9_-]{40,}$/, 'pkce() verifier should be a URL-safe string of reasonable length');
@@ -354,6 +367,26 @@ async function testProtocol() {
   await expectRejected('bad-iss', 'verifyIdToken rejects an iss mismatch');
   await expectRejected('bad-aud', 'verifyIdToken rejects an aud that does not include this client');
   await expectRejected('expired', 'verifyIdToken rejects an expired id_token');
+  await expectRejected('multi-aud-no-azp', 'verifyIdToken rejects a multi-value aud without a matching azp');
+  await expectRejected('future-iat', 'verifyIdToken rejects an id_token whose iat is in the future');
+
+  async function expectAccepted(mode, label) {
+    stub.setTokenMode(mode);
+    const { tokenRes: goodTokenRes, nonce: goodNonce } = await runAuthorizeExchange(discovery);
+    assert.equal(goodTokenRes.status, 200, `${label}: the exchange itself should succeed`);
+    const acceptedClaims = await verifyIdToken(goodTokenRes.body.id_token, {
+      jwks,
+      issuer: stub.issuerUrl,
+      clientId: CLIENT_ID,
+      nonce: goodNonce,
+    });
+    assert.equal(acceptedClaims.sub, TEST_USER.sub);
+    stub.setTokenMode('ok');
+    ok(label);
+  }
+
+  await expectAccepted('multi-aud-ok', 'verifyIdToken accepts a multi-value aud whose azp names this client');
+  await expectAccepted('exp-leeway', 'verifyIdToken accepts an id_token that expired within the clock-skew leeway');
 
   const accessToken = tokenRes.body.access_token;
 

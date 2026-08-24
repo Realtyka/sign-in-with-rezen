@@ -32,7 +32,10 @@ If your contact gives you a different issuer for development, the same guide is 
 discovery endpoints directly from the browser, from your app's own origin. If the
 issuer does not allow cross-origin requests from that origin, the code exchange fails
 with a CORS error in the browser console rather than an error from reZEN itself. If you
-see that, ask your Real contact to confirm your origin is allowed.
+see that, ask your Real contact to confirm your origin is allowed. The browser also
+calls the Real API directly, sending the access token as a custom `x-api-key` header —
+the API host must allow that header for your origin too, or the preflight fails the
+same way.
 
 ## Run
 
@@ -80,16 +83,20 @@ kind of stub.
 
 ## Notes
 
-- The access token is held in memory and mirrored (with its expiry, granted scope, and
-  identity claims) into `sessionStorage`, so a reload of this tab stays signed in. The
-  refresh token is held in memory only and is never written to `sessionStorage` or
-  anywhere else — it is gone after a reload; the access token survives until it expires.
-  That mirror is readable by any script that runs on this app's origin — the accepted
-  cost of having no backend to hold it instead.
-- The popup hands its result to the main page over a `BroadcastChannel`, not only
-  `window.opener.postMessage` — some issuer pages set a
-  `Cross-Origin-Opener-Policy` header that detaches `window.opener`, and the channel
-  works either way.
+- Where tokens live: the access token is held in memory with a per-tab `sessionStorage`
+  mirror, so a reload of this tab stays signed in and closing the tab signs you out; it
+  is never written to `localStorage` or a cookie. The refresh token is held in memory
+  only and is never persisted anywhere — it is the long-lived credential, and a browser
+  has no safe place to keep it between page loads. Any script running on this app's
+  origin can read `sessionStorage`, so keep the origin free of untrusted code. If your
+  app has a backend, prefer the confidential client, which keeps every token
+  server-side.
+- The popup hands its result to the main page over a `BroadcastChannel` (and
+  `window.opener.postMessage` too, when an opener is still present, belt and braces) —
+  the issuer's pages may set a `Cross-Origin-Opener-Policy` header that detaches
+  `window.opener` from the page that opened it, so the result travels the channel
+  either way. The popup closes itself once the main page acknowledges the result over
+  that same channel.
 - The authorization code is single-use and expires in 60 seconds.
 - The access token is an opaque API key — sent as `x-api-key` to Real APIs, never as
   `Authorization: Bearer` (that header is used only for `/userinfo`).

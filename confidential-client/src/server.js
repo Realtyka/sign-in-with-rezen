@@ -87,7 +87,6 @@ const CSS = `
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -356,14 +355,6 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 .rezen-btn.on-dark:hover .rezen-btn-label { color: var(--cobalt); }
 
 .rezen-btn:active { transform: translateY(0); box-shadow: none; }
-.rezen-btn:disabled { opacity: .45; cursor: default; }
-.rezen-btn:disabled:hover { transform: none; box-shadow: none; }
-.rezen-btn:disabled:hover .rezen-btn-logo img.rest { opacity: 1; }
-.rezen-btn:disabled:hover .rezen-btn-logo img.swap { opacity: 0; }
-.rezen-btn.on-light:disabled:hover { background: var(--chalk); border-color: var(--onyx); }
-.rezen-btn.on-light:disabled:hover .rezen-btn-label { color: var(--onyx); }
-.rezen-btn.on-dark:disabled:hover { background: transparent; }
-.rezen-btn.on-dark:disabled:hover .rezen-btn-label { color: var(--chalk); }
 
 /* ---- values the flow returns: always mono ---- */
 table.kv {
@@ -681,9 +672,18 @@ export function createServer(config) {
   const handler = async (req, res) => {
     const url = requestUrl(req);
     try {
-      if (req.method === 'GET' && url.pathname === '/') {
+      if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname === '/') {
         const session = getSession(req);
-        return sendHtml(res, homePage(session?.data));
+        const html = homePage(session?.data);
+        if (req.method === 'HEAD') {
+          res.writeHead(200, {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Content-Length': Buffer.byteLength(html),
+            ...SECURITY_HEADERS,
+          });
+          return res.end();
+        }
+        return sendHtml(res, html);
       }
 
       if (req.method === 'GET' && LOGOS[url.pathname]) {
@@ -717,6 +717,15 @@ export function createServer(config) {
         const session = getSession(req);
         if (!session) return sendHtml(res, errorPage('No active sign-in session — start again.'), 400);
 
+        // state is checked before anything else in the query string is
+        // trusted — including error — so a crafted /callback?error=...
+        // link can't show this session the issuer's error page for a
+        // sign-in it never started.
+        const flow = session.data.flow;
+        if (!flow || url.searchParams.get('state') !== flow.state) {
+          return sendHtml(res, errorPage('The state parameter did not match — start again.'), 400);
+        }
+
         const errParam = url.searchParams.get('error');
         if (errParam) {
           return sendHtml(
@@ -726,10 +735,6 @@ export function createServer(config) {
           );
         }
 
-        const flow = session.data.flow;
-        if (!flow || url.searchParams.get('state') !== flow.state) {
-          return sendHtml(res, errorPage('The state parameter did not match — start again.'), 400);
-        }
         if (url.searchParams.get('iss') !== config.issuer) {
           return sendHtml(res, errorPage('The issuer on the callback did not match — start again.'), 400);
         }
