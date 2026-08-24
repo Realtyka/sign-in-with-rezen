@@ -1,0 +1,15 @@
+{
+  "name": "login-with-rezen",
+  "version": "1.0.0",
+  "description": "A minimal, runnable example of Login with reZEN: PKCE authorization code flow, identity token verification, and one API call.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/start.js",
+    "test": "node test/smoke.mjs"
+  }
+}
