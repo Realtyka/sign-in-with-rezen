@@ -55,34 +55,79 @@ function escapeHtml(text) {
 const CSS = `
 /* Sign in with reZEN — sample client.
  *
- * Two sheets on the reZEN brand palette: Chalk carrying Onyx type with Slate
- * for the quiet lines and Seaglass for every rule, and Cobalt carrying Chalk.
- * Headlines in the brand grotesk, body in its companion sans, and mono for
- * every value the flow returns. The accents stay small: Legacy Blue on focus
- * and progress, Aqua where the progress bar lands, Coral once or twice a page.
+ * The reZEN product look: white surfaces, a 1px grey border as the resting
+ * edge, grey type, and one blue accent that does all the work. No gradients,
+ * no textures, no shadows — spacing and that hairline border do the
+ * separating. Values the flow returns are set in mono; everything else is the
+ * body face.
+ *
  * Self-contained by design — no webfonts, no icon sets, no external request
- * of any kind. The page renders offline.
+ * of any kind. The page renders offline: Inter when the system already has
+ * it, the platform sans otherwise.
  */
 
 :root {
-  /* brand palette */
-  --chalk: #ffffff;
-  --cobalt: #050e3d;
-  --seaglass: #bfdddb;
-  --slate: #615b56;
-  --onyx: #1d1d1d;
-  --coral: #ff557e;
-  --legacy-blue: #05c3f9;
-  --aqua: #00fbf0;
+  /* design tokens */
+  --blue-50: #edf4ff;
+  --blue-100: #ddebff;
+  --blue-200: #c2d8ff;
+  --blue-500: #4967fd;
+  --blue-600: #3848f3;
+  --blue-700: #2c39d6;
+  --blue-900: #273288;
+  --blue-950: #171c4f;
 
-  --ink: var(--onyx);
-  --muted: var(--slate);
-  --rule: var(--seaglass);
-  --ground: var(--chalk);
+  --red-50: #fff1f2;
+  --red-200: #ffccd3;
+  --red-500: #f84c6c;
 
-  --font-family-head: "Telegraf", "Poppins", "Inter", Arial, sans-serif;
-  --font-family-body: "Inter", Arial, sans-serif;
+  --grey-50: #f8fafc;
+  --grey-100: #f1f5f9;
+  --grey-200: #e2e8f0;
+  --grey-300: #cbd5e1;
+  --grey-400: #94a3b8;
+  --grey-500: #64748b;
+  --grey-700: #334155;
+  --grey-800: #1e293b;
+  --grey-950: #020617;
+
+  --white: #ffffff;
+  --black: #1d1d1d;
+
+  /* semantic aliases */
+  --surface-primary: var(--white);
+  --surface-secondary: var(--grey-50);
+  --surface-dark: var(--grey-950);
+  --border-default: var(--grey-200);
+  --border-focus: var(--blue-500);
+  --text-primary: var(--grey-950);
+  --text-secondary: var(--grey-700);
+  --text-tertiary: var(--grey-500);
+  --text-brand: var(--blue-500);
+  --text-inverse: var(--white);
+
+  /* type */
+  --font-family-body: "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-family-head: var(--font-family-body);
   --font-family-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --fs-h1: 30px;
+  --lh-h1: 36px;
+  --fs-body: 16px;
+  --fs-body-sm: 14px;
+  --fs-caption: 12px;
+
+  /* shape */
+  --radius: 6px;
+  --radius-xl: 12px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --fs-h1: 24px;
+    --lh-h1: 32px;
+    --fs-body: 14px;
+    --fs-body-sm: 12px;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -91,33 +136,26 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   min-height: 100vh;
-  color: var(--ink);
+  color: var(--text-primary);
   font-family: var(--font-family-body);
-  font-size: 16px;
-  line-height: 1.6;
-  background-color: var(--ground);
-  /* a soft Seaglass wash off the top corner, and nothing else on the ground */
-  background-image:
-    radial-gradient(clamp(520px, 70vw, 900px) clamp(340px, 60vh, 620px) at 100% -12%, rgba(191, 221, 219, .34), rgba(191, 221, 219, 0) 62%);
-  background-attachment: fixed;
+  font-size: var(--fs-body);
+  font-weight: 400;
+  line-height: 1.5;
+  background-color: var(--surface-secondary);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ---- layout: one content column, offset left, wide margin to the right ---- */
+/* ---- layout: one left-aligned content column ---- */
 .wrap {
-  position: relative;
-  z-index: 1;
   max-width: 1120px;
   margin: 0 auto;
-  padding: clamp(44px, 9vh, 104px) 24px 80px;
+  padding: clamp(40px, 8vh, 88px) 24px 72px;
 }
-.col {
-  max-width: 620px;
-  margin-left: clamp(0px, 5vw, 72px);
-}
+.col { max-width: 640px; }
 .wide { width: 100%; }
 /* The landing is two panels and nothing else, so it centres itself on a tall
  * viewport. Browsers without :has() simply leave it top-aligned. */
-.wrap:has(> .wide) {
+.wrap:has(> .wide:not([hidden])) {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -128,95 +166,55 @@ body {
 /* The page mark keeps clear space of at least its own height on every side. */
 .brandmark {
   display: block;
-  height: 40px;
+  height: 24px;
   width: auto;
-  margin: 0 0 40px;
+  margin: 0 0 24px;
 }
-.brandmark.sm { height: 26px; margin-bottom: 30px; }
 
-h1 {
-  margin: 0 0 18px;
+h1,
+.display {
+  margin: 0 0 12px;
   font-family: var(--font-family-head);
   font-weight: 600;
-  font-size: clamp(2.25rem, 6vw, 3.25rem);
-  letter-spacing: -.03em;
-  line-height: 1.02;
-  text-wrap: balance;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: -.01em;
+  color: inherit;
 }
-h1.sm {
-  font-size: clamp(1.8rem, 4.4vw, 2.35rem);
-  margin-bottom: 28px;
-}
-
-.caption {
-  margin: 18px 0 0;
-  color: var(--muted);
-  font-family: var(--font-family-mono);
-  font-size: .78rem;
-}
-.error-text {
-  margin: 0 0 28px;
-  max-width: 46ch;
-  color: var(--ink);
-  font-size: 1.0625rem;
-}
-
-/* Section labels: a short Cobalt tick, mono small caps, a Seaglass rule to
- * the edge. */
-.section-label {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 44px 0 16px;
-  color: var(--muted);
-  font-family: var(--font-family-mono);
-  font-weight: 500;
-  font-size: .69rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-.section-label::before {
-  content: "";
-  width: 14px;
-  height: 2px;
-  background: var(--cobalt);
-  flex: none;
-}
-.section-label::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--rule);
-}
+.display { display: block; }
 
 p { margin: 0 0 16px; }
 
+.caption {
+  margin: 12px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
+}
+
+/* Section labels: the smallest heading step, over a hairline divider. */
+.section-label {
+  margin: 32px 0 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-default);
+  font-family: var(--font-family-head);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+}
+
 a {
-  color: var(--cobalt);
+  color: var(--text-brand);
   font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: rgba(5, 14, 61, .3);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  transition: text-decoration-color .15s ease;
+  text-decoration: none;
 }
-a:hover {
-  text-decoration-color: var(--coral);
-  text-decoration-thickness: 2px;
-}
+a:hover { text-decoration: underline; }
 a:focus-visible {
-  outline: 2px solid var(--legacy-blue);
-  outline-offset: 3px;
-  border-radius: 2px;
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
-a.quiet {
-  color: var(--muted);
-  font-weight: 400;
-  font-family: var(--font-family-mono);
-  font-size: .78rem;
-  text-decoration-color: var(--rule);
-}
-a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 
 /* ---- the two landing samples ---- */
 .panels {
@@ -228,72 +226,38 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
   .panels { grid-template-columns: 1fr 1fr; gap: 24px; }
 }
 .panel {
-  position: relative;
-  overflow: hidden;
-  border-radius: 12px;
-  padding: clamp(28px, 3.4vw, 44px);
-}
-.panel > * { position: relative; z-index: 1; }
-/* A fine Seaglass drafting grid rises out of the top corner of each sheet and
- * fades before it reaches the copy. The same grid on both — it is the one
- * thing the two panels share besides the button. The mask only uses the
- * gradient's alpha, so it is drawn in Cobalt like everything else. */
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(0deg, var(--grid) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 28px);
-  -webkit-mask-image: radial-gradient(560px 360px at 100% 0%, var(--cobalt) 0%, transparent 72%);
-  mask-image: radial-gradient(560px 360px at 100% 0%, var(--cobalt) 0%, transparent 72%);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  padding: clamp(24px, 3vw, 40px);
 }
 .panel-light {
-  --grid: rgba(191, 221, 219, .75);
-  background: var(--chalk);
-  border: 1px solid var(--rule);
-  color: var(--ink);
+  background: var(--surface-primary);
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 .panel-dark {
-  --grid: rgba(191, 221, 219, .16);
-  background-color: var(--cobalt);
-  background-image: radial-gradient(520px 380px at 88% -14%, rgba(191, 221, 219, .22), rgba(191, 221, 219, 0) 62%);
-  color: var(--chalk);
+  background: var(--surface-dark);
+  border-color: var(--surface-dark);
+  color: var(--text-inverse);
 }
-.panel-logo { display: block; height: 24px; width: auto; margin: 0 0 28px; }
+.panel-logo { display: block; height: 24px; width: auto; margin: 0 0 24px; }
 .panel-kicker {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-family: var(--font-family-mono);
-  font-size: .68rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-.panel h1,
-.panel .display {
-  margin: 0 0 14px;
-  font-family: var(--font-family-head);
-  font-weight: 600;
-  font-size: clamp(1.9rem, 3.2vw, 2.5rem);
-  letter-spacing: -.03em;
-  line-height: 1.04;
-  text-transform: none;
-  text-wrap: balance;
-  display: block;
-  color: inherit;
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
 }
 .panel-copy {
-  margin: 0 0 30px;
+  margin: 0 0 24px;
   max-width: 42ch;
-  color: var(--muted);
-  font-size: 1rem;
-  text-wrap: pretty;
+  color: var(--text-secondary);
 }
+/* On the dark panel the quiet greys lift a step so they stay legible. */
 .panel-dark .panel-kicker,
-.panel-dark .panel-copy,
-.panel-dark .caption { color: var(--seaglass); }
+.panel-dark .caption,
+.panel-dark .styles-label,
+.panel-dark .styles-note { color: var(--grey-400); }
+.panel-dark .panel-copy { color: var(--grey-300); }
 
 /* ---- the button: the reZEN sign-in button ----
  * Two variants (filled, outline), three fill styles (navy — the default —,
@@ -307,18 +271,18 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 .rezen-btn,
 .rezen-btn.navy {
   --rezen-btn-fill: #050e3d;
-  --rezen-btn-fill-hover: #171c4f;
-  --rezen-btn-fill-active: #273288;
+  --rezen-btn-fill-hover: var(--blue-950);
+  --rezen-btn-fill-active: var(--blue-900);
 }
 .rezen-btn.rezen {
-  --rezen-btn-fill: #4967fd;
-  --rezen-btn-fill-hover: #3848f3;
-  --rezen-btn-fill-active: #2c39d6;
+  --rezen-btn-fill: var(--blue-500);
+  --rezen-btn-fill-hover: var(--blue-600);
+  --rezen-btn-fill-active: var(--blue-700);
 }
 .rezen-btn.neutral {
   --rezen-btn-fill: #000000;
-  --rezen-btn-fill-hover: #1e293b;
-  --rezen-btn-fill-active: #334155;
+  --rezen-btn-fill-hover: var(--grey-800);
+  --rezen-btn-fill-active: var(--grey-700);
 }
 
 /* Sizes: height, inset from the outer edge (the 1px border is inside it),
@@ -355,12 +319,12 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 }
 
 .rezen-btn {
-  --rezen-btn-outline-bg: #ffffff;
-  --rezen-btn-outline-bg-hover: #f8fafc;
-  --rezen-btn-outline-bg-active: #f1f5f9;
-  --rezen-btn-outline-border: #e2e8f0;
-  --rezen-btn-outline-border-hover: #cbd5e1;
-  --rezen-btn-outline-ink: #020617;
+  --rezen-btn-outline-bg: var(--white);
+  --rezen-btn-outline-bg-hover: var(--grey-50);
+  --rezen-btn-outline-bg-active: var(--grey-100);
+  --rezen-btn-outline-border: var(--grey-200);
+  --rezen-btn-outline-border-hover: var(--grey-300);
+  --rezen-btn-outline-ink: var(--grey-950);
 
   display: inline-flex;
   align-items: center;
@@ -369,7 +333,7 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
   height: var(--rezen-btn-height);
   padding: var(--rezen-btn-padding);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-family: var(--font-family-body);
   font-size: var(--rezen-btn-font-size);
   font-weight: 500;
@@ -380,16 +344,17 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease;
 }
+.rezen-btn:hover { text-decoration: none; }
 .rezen-btn-label { color: inherit; }
 /* The wordmark is an image, never recoloured: the white asset on the filled
  * variant, the black asset on the outline variant. */
 .rezen-btn-logo { display: block; height: var(--rezen-btn-logo); width: auto; }
-.rezen-btn:focus-visible { outline: 2px solid var(--legacy-blue); outline-offset: 3px; }
+.rezen-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 
 .rezen-btn.filled {
   background: var(--rezen-btn-fill);
   border-color: var(--rezen-btn-fill);
-  color: var(--chalk);
+  color: var(--text-inverse);
 }
 .rezen-btn.filled:hover {
   background: var(--rezen-btn-fill-hover);
@@ -449,69 +414,99 @@ a.quiet:hover { color: var(--ink); text-decoration-color: var(--coral); }
 }
 /* The mark-and-text layout: the bracket mark on the left, then the whole
  * label as text — no wordmark image. Same heights, radius, border and type;
- * a wider gap. The mark takes the label colour on the filled variant and
- * Onyx on the outline variant. */
+ * a wider gap. The mark takes the label colour on the filled variant and the
+ * near-black on the outline variant. */
 .rezen-btn.icon-left,
 .rezen-btn.icon-left.m,
 .rezen-btn.icon-left.l { --rezen-btn-gap: 12px; --rezen-btn-mark: 16px; }
 .rezen-btn.icon-left.s { --rezen-btn-gap: 8px; --rezen-btn-mark: 16px; }
 .rezen-btn.icon-left.xs { --rezen-btn-gap: 6px; --rezen-btn-mark: 14px; --rezen-btn-padding: 0 11px; }
 .rezen-btn-mark { display: block; flex: none; height: var(--rezen-btn-mark, 16px); width: auto; }
-.rezen-btn.outline .rezen-btn-mark { color: var(--onyx); }
+.rezen-btn.outline .rezen-btn-mark { color: var(--black); }
 
 /* A specimen: drawn like the button, but not one — no pointer, no states. */
 .rezen-btn.specimen { pointer-events: none; }
 
 /* Under each call to action: styles that differ from it. */
-.styles { margin: 22px 0 0; }
+.styles { margin: 24px 0 0; }
 .styles-label,
 .styles-note {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-family: var(--font-family-mono);
-  font-size: .62rem;
-  letter-spacing: .16em;
-  text-transform: uppercase;
+  margin: 0 0 12px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
 }
 .styles-note { margin: 12px 0 0; }
-.panel-dark .styles-label,
-.panel-dark .styles-note { color: var(--seaglass); }
 .styles-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
+
+/* ---- the plain button: used where the page acts on itself ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-family: var(--font-family-body);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.btn.s { height: 38px; font-size: 14px; }
+.btn:hover { text-decoration: none; }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+/* Ghost: the quietest step. Pulled left by its own padding so the label
+ * lines up with the column. */
+.btn-ghost {
+  margin-left: -16px;
+  background: transparent;
+  color: var(--text-brand);
+}
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-ghost:active { background: var(--blue-100); }
 
 /* ---- values the flow returns: always mono ---- */
 table.kv {
   border-collapse: collapse;
   width: 100%;
   font-family: var(--font-family-mono);
-  font-size: .82rem;
+  font-size: 13px;
+  line-height: 20px;
 }
 table.kv td {
-  padding: 11px 0;
-  border-bottom: 1px solid var(--rule);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-default);
   vertical-align: top;
 }
 table.kv tr:last-child td { border-bottom: 0; }
 table.kv td:first-child {
   width: 34%;
   padding-right: 16px;
-  color: var(--muted);
+  color: var(--text-tertiary);
 }
-table.kv td:last-child { word-break: break-word; }
+table.kv td:last-child { color: var(--text-primary); word-break: break-word; }
 
 .card {
-  background: var(--chalk);
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  padding: 4px 18px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 2px 16px;
 }
 
-/* Identity scopes sit Onyx on Chalk; data scopes on the Real API sit Cobalt
- * on Seaglass. */
-ul.chips {
+/* ---- granted scope: one badge per scope ----
+ * The scopes that release identity claims are neutral; everything else is a
+ * data scope on the Real API and carries the brand tone. */
+ul.badges {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -519,73 +514,94 @@ ul.chips {
   padding: 0;
   list-style: none;
 }
-.chip {
-  padding: 5px 12px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: var(--chalk);
-  color: var(--ink);
-  font-family: var(--font-family-mono);
-  font-size: .74rem;
-  letter-spacing: .02em;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  line-height: 1;
   white-space: nowrap;
 }
-.chip.data {
-  color: var(--cobalt);
-  border-color: var(--seaglass);
-  background: var(--seaglass);
+.badge.brand {
+  background: var(--blue-50);
+  border-color: var(--blue-200);
+  color: var(--blue-900);
 }
 
-/* ---- what happened: a timeline, one Cobalt tick per step ---- */
+/* ---- what happened: a timeline, one marker per step ---- */
 ol.steps {
   list-style: none;
   margin: 0;
-  padding: 2px 0 2px 26px;
-  border-left: 1px solid var(--rule);
+  padding: 2px 0 2px 28px;
+  border-left: 1px solid var(--border-default);
 }
 ol.steps li {
   position: relative;
-  margin: 0 0 14px;
-  color: var(--ink);
-  font-family: var(--font-family-mono);
-  font-size: .78rem;
-  line-height: 1.55;
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 20px;
 }
 ol.steps li:last-child { margin-bottom: 0; }
 ol.steps li::before {
   content: "✓";
   position: absolute;
-  left: -35px;
+  left: -39px;
   top: 0;
   width: 18px;
   height: 18px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  background: var(--chalk);
-  color: var(--cobalt);
-  font-size: .62rem;
-  font-weight: 700;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-brand);
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1;
 }
+/* A step that reports a failure gets the danger marker. */
 ol.steps li.warn::before {
   content: "!";
-  color: var(--coral);
-  border-color: var(--coral);
+  background: var(--red-50);
+  border-color: var(--red-200);
+  color: var(--red-500);
 }
 
-.logout { margin: 44px 0 0; }
+.logout { margin: 32px 0 0; }
 
-/* ---- failure: one short Coral rule above the headline ---- */
-.error-rule {
-  display: block;
-  width: 36px;
-  height: 3px;
-  margin: 0 0 22px;
-  border-radius: 999px;
-  background: var(--coral);
+/* ---- an inline alert: tinted, bordered, dark type ---- */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 20px;
 }
+.alert p { margin: 0; }
+.alert-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+}
+.alert-danger {
+  background: var(--red-50);
+  border-color: var(--red-200);
+}
+.alert-danger .alert-icon { color: var(--red-500); }
 
 /* ---- one orchestrated reveal on load, and nothing else moving ---- */
 @keyframes rise {
@@ -630,25 +646,29 @@ function layout(title, body, wrapperClass = 'col reveal') {
 </html>`;
 }
 
+// The alert icon, drawn in the alert's own colour.
+const ALERT_ICON = '<svg class="alert-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">'
+  + '<path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 3.4a.9.9 0 0 1 .9.9v4a.9.9 0'
+  + ' 0 1-1.8 0v-4a.9.9 0 0 1 .9-.9Zm0 7.1a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1Z"/></svg>';
+
 function errorPage(message) {
   return layout('Sign-in failed', `
-    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
-    <span class="error-rule" aria-hidden="true"></span>
-    <h1 class="sm">Sign-in failed</h1>
-    <p class="error-text">${escapeHtml(message)}</p>
+    <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1>Sign-in failed</h1>
+    <div class="alert alert-danger" role="alert">${ALERT_ICON}<p>${escapeHtml(message)}</p></div>
     <p><a href="/">Start again</a></p>
   `);
 }
 
-// The scopes that release identity claims are shown Onyx on Chalk; everything
-// else is a data scope on the Real API, shown Cobalt on Seaglass.
+// The scopes that release identity claims get the neutral badge; everything
+// else is a data scope on the Real API and gets the brand badge.
 const IDENTITY_SCOPES = new Set(['openid', 'profile', 'email', 'real.identity']);
 
-function scopeChips(scope) {
+function scopeBadges(scope) {
   const granted = String(scope || '').split(/\s+/).filter(Boolean);
   if (!granted.length) return '<p class="caption">No scope was granted.</p>';
-  return `<ul class="chips">${granted
-    .map((s) => `<li class="chip${IDENTITY_SCOPES.has(s) ? '' : ' data'}">${escapeHtml(s)}</li>`)
+  return `<ul class="badges">${granted
+    .map((s) => `<li class="badge${IDENTITY_SCOPES.has(s) ? '' : ' brand'}">${escapeHtml(s)}</li>`)
     .join('')}</ul>`;
 }
 
@@ -714,16 +734,16 @@ function homePage(sessionData) {
       .map((s) => `<li${/failed/i.test(s) ? ' class="warn"' : ''}>${escapeHtml(s)}</li>`)
       .join('');
     return layout('Signed in with reZEN', `
-      <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
-      <h1 class="sm">Signed in with reZEN</h1>
+      <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+      <h1>Signed in with reZEN</h1>
       <h2 class="section-label">Identity</h2>
       ${identityTable}
       <h2 class="section-label">Granted scope</h2>
-      ${scopeChips(sessionData.scope)}
+      ${scopeBadges(sessionData.scope)}
       ${profileBlock}
       <h2 class="section-label">What happened</h2>
       <ol class="steps">${steps}</ol>
-      <p class="logout"><a class="quiet" href="/sign-out">Sign out</a></p>
+      <p class="logout"><a class="btn btn-ghost s" href="/sign-out">Sign out</a></p>
     `);
   }
   return layout('Sign in with reZEN', `

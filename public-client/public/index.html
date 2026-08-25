@@ -54,8 +54,8 @@
   </section>
 
   <section id="signed-in" class="col reveal" hidden>
-    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
-    <h1 class="sm">Signed in with reZEN</h1>
+    <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1>Signed in with reZEN</h1>
     <h2 class="section-label">Identity</h2>
     <table class="kv">
       <tr><td>sub</td><td id="id-sub"></td></tr>
@@ -64,7 +64,7 @@
       <tr><td>yentaId</td><td id="id-yentaid"></td></tr>
     </table>
     <h2 class="section-label">Granted scope</h2>
-    <ul class="chips" id="id-scope"></ul>
+    <ul class="badges" id="id-scope"></ul>
     <h2 class="section-label">Profile</h2>
     <div class="card" id="profile-table" hidden>
       <table class="kv">
@@ -75,14 +75,16 @@
     <p id="profile-skip" class="caption" hidden></p>
     <h2 class="section-label">What happened</h2>
     <ol id="steps" class="steps"></ol>
-    <p class="logout"><a id="logout-link" class="quiet" href="#">Sign out</a></p>
+    <p class="logout"><a id="logout-link" class="btn btn-ghost s" href="#">Sign out</a></p>
   </section>
 
   <section id="error-box" class="col reveal" hidden>
-    <img class="brandmark sm" src="/rezen-logo-black.svg" alt="reZEN">
-    <span class="error-rule" aria-hidden="true"></span>
-    <h1 class="sm">Sign-in failed</h1>
-    <p id="error-message" class="error-text"></p>
+    <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1>Sign-in failed</h1>
+    <div class="alert alert-danger" role="alert">
+      <svg class="alert-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 3.4a.9.9 0 0 1 .9.9v4a.9.9 0 0 1-1.8 0v-4a.9.9 0 0 1 .9-.9Zm0 7.1a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1Z"/></svg>
+      <p id="error-message"></p>
+    </div>
     <p><a href="/">Start again</a></p>
   </section>
 

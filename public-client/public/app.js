@@ -206,13 +206,13 @@ async function completeAndRender(session) {
   renderSignedIn(mirror);
 }
 
-// The scopes that release identity claims are shown Onyx on Chalk; everything
-// else is a data scope on the Real API, shown Cobalt on Seaglass.
+// The scopes that release identity claims get the neutral badge; everything
+// else is a data scope on the Real API and gets the brand badge.
 const IDENTITY_SCOPES = new Set(['openid', 'profile', 'email', 'real.identity']);
 
-function scopeChip(scope) {
+function scopeBadge(scope) {
   const li = document.createElement('li');
-  li.className = IDENTITY_SCOPES.has(scope) ? 'chip' : 'chip data';
+  li.className = IDENTITY_SCOPES.has(scope) ? 'badge' : 'badge brand';
   li.textContent = scope;
   return li;
 }
@@ -224,7 +224,7 @@ function renderSignedIn(session) {
   $('id-email').textContent = claims.email ?? '(not present)';
   $('id-yentaid').textContent = claims.yentaId ?? '(not present)';
   $('id-scope').replaceChildren(
-    ...(session.scope || '').split(/\s+/).filter(Boolean).map(scopeChip),
+    ...(session.scope || '').split(/\s+/).filter(Boolean).map(scopeBadge),
   );
 
   const profileTable = $('profile-table');
