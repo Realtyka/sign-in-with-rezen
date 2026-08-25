@@ -1,0 +1,656 @@
+/* Sign in with reZEN — sample client.
+ *
+ * The reZEN product look: white surfaces, a 1px grey border as the resting
+ * edge, grey type, and one blue accent that does all the work. No gradients,
+ * no textures, no shadows — spacing and that hairline border do the
+ * separating. Values the flow returns are set in mono; everything else is the
+ * body face.
+ *
+ * Self-contained by design — no webfonts, no icon sets, no external request
+ * of any kind. The page renders offline: Inter when the system already has
+ * it, the platform sans otherwise.
+ */
+
+:root {
+  /* design tokens */
+  --blue-50: #edf4ff;
+  --blue-100: #ddebff;
+  --blue-200: #c2d8ff;
+  --blue-500: #4967fd;
+  --blue-600: #3848f3;
+  --blue-700: #2c39d6;
+  --blue-900: #273288;
+  --blue-950: #171c4f;
+
+  --red-50: #fff1f2;
+  --red-200: #ffccd3;
+  --red-500: #f84c6c;
+
+  --grey-50: #f8fafc;
+  --grey-100: #f1f5f9;
+  --grey-200: #e2e8f0;
+  --grey-300: #cbd5e1;
+  --grey-400: #94a3b8;
+  --grey-500: #64748b;
+  --grey-700: #334155;
+  --grey-800: #1e293b;
+  --grey-950: #020617;
+
+  --white: #ffffff;
+  --black: #1d1d1d;
+
+  /* semantic aliases */
+  --surface-primary: var(--white);
+  --surface-secondary: var(--grey-50);
+  --surface-dark: var(--grey-950);
+  --border-default: var(--grey-200);
+  --border-focus: var(--blue-500);
+  --text-primary: var(--grey-950);
+  --text-secondary: var(--grey-700);
+  --text-tertiary: var(--grey-500);
+  --text-brand: var(--blue-500);
+  --text-inverse: var(--white);
+
+  /* type */
+  --font-family-body: "Inter", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-family-head: var(--font-family-body);
+  --font-family-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --fs-h1: 30px;
+  --lh-h1: 36px;
+  --fs-body: 16px;
+  --fs-body-sm: 14px;
+  --fs-caption: 12px;
+
+  /* shape */
+  --radius: 6px;
+  --radius-xl: 12px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --fs-h1: 24px;
+    --lh-h1: 32px;
+    --fs-body: 14px;
+    --fs-body-sm: 12px;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text-primary);
+  font-family: var(--font-family-body);
+  font-size: var(--fs-body);
+  font-weight: 400;
+  line-height: 1.5;
+  background-color: var(--surface-secondary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- layout: one left-aligned content column ---- */
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(40px, 8vh, 88px) 24px 72px;
+}
+.col { max-width: 640px; }
+.wide { width: 100%; }
+/* The landing is two panels and nothing else, so it centres itself on a tall
+ * viewport. Browsers without :has() simply leave it top-aligned. */
+.wrap:has(> .wide:not([hidden])) {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ---- type ---- */
+/* The page mark keeps clear space of at least its own height on every side. */
+.brandmark {
+  display: block;
+  height: 24px;
+  width: auto;
+  margin: 0 0 24px;
+}
+
+h1,
+.display {
+  margin: 0 0 12px;
+  font-family: var(--font-family-head);
+  font-weight: 600;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: -.01em;
+  color: inherit;
+}
+.display { display: block; }
+
+p { margin: 0 0 16px; }
+
+.caption {
+  margin: 12px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
+}
+
+/* Section labels: the smallest heading step, over a hairline divider. */
+.section-label {
+  margin: 32px 0 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-default);
+  font-family: var(--font-family-head);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+}
+
+a {
+  color: var(--text-brand);
+  font-weight: 500;
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+a:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ---- the two landing samples ---- */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+@media (min-width: 880px) {
+  .panels { grid-template-columns: 1fr 1fr; gap: 24px; }
+}
+.panel {
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  padding: clamp(24px, 3vw, 40px);
+}
+.panel-light {
+  background: var(--surface-primary);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.panel-dark {
+  background: var(--surface-dark);
+  border-color: var(--surface-dark);
+  color: var(--text-inverse);
+}
+.panel-logo { display: block; height: 24px; width: auto; margin: 0 0 24px; }
+.panel-kicker {
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
+}
+.panel-copy {
+  margin: 0 0 24px;
+  max-width: 42ch;
+  color: var(--text-secondary);
+}
+/* On the dark panel the quiet greys lift a step so they stay legible. */
+.panel-dark .panel-kicker,
+.panel-dark .caption,
+.panel-dark .styles-label,
+.panel-dark .styles-note { color: var(--grey-400); }
+.panel-dark .panel-copy { color: var(--grey-300); }
+
+/* ---- the button: the reZEN sign-in button ----
+ * Two variants (filled, outline), three fill styles (navy — the default —,
+ * rezen, neutral), four sizes (xs, s, m, l) and the states hover, pressed,
+ * loading and disabled. Fill styles and sizes are custom properties on a
+ * modifier class, so one rule set draws every combination. The outline
+ * variant is the same in every fill style. These colours belong to the
+ * button and to nothing else on the page. */
+.cta { margin: 0; }
+
+.rezen-btn,
+.rezen-btn.navy {
+  --rezen-btn-fill: #050e3d;
+  --rezen-btn-fill-hover: var(--blue-950);
+  --rezen-btn-fill-active: var(--blue-900);
+}
+.rezen-btn.rezen {
+  --rezen-btn-fill: var(--blue-500);
+  --rezen-btn-fill-hover: var(--blue-600);
+  --rezen-btn-fill-active: var(--blue-700);
+}
+.rezen-btn.neutral {
+  --rezen-btn-fill: #000000;
+  --rezen-btn-fill-hover: var(--grey-800);
+  --rezen-btn-fill-active: var(--grey-700);
+}
+
+/* Sizes: height, inset from the outer edge (the 1px border is inside it),
+ * label size, wordmark height, and the gap between label, wordmark and
+ * spinner. Medium is the default. */
+.rezen-btn,
+.rezen-btn.m {
+  --rezen-btn-height: 44px;
+  --rezen-btn-padding: 0 15px;
+  --rezen-btn-font-size: 16px;
+  --rezen-btn-logo: 24px;
+  --rezen-btn-gap: 8px;
+}
+.rezen-btn.xs {
+  --rezen-btn-height: 28px;
+  --rezen-btn-padding: 0 11px 0 7px;
+  --rezen-btn-font-size: 14px;
+  --rezen-btn-logo: 18px;
+  --rezen-btn-gap: 4px;
+}
+.rezen-btn.s {
+  --rezen-btn-height: 38px;
+  --rezen-btn-padding: 0 15px;
+  --rezen-btn-font-size: 14px;
+  --rezen-btn-logo: 20px;
+  --rezen-btn-gap: 6px;
+}
+.rezen-btn.l {
+  --rezen-btn-height: 52px;
+  --rezen-btn-padding: 0 23px;
+  --rezen-btn-font-size: 18px;
+  --rezen-btn-logo: 24px;
+  --rezen-btn-gap: 8px;
+}
+
+.rezen-btn {
+  --rezen-btn-outline-bg: var(--white);
+  --rezen-btn-outline-bg-hover: var(--grey-50);
+  --rezen-btn-outline-bg-active: var(--grey-100);
+  --rezen-btn-outline-border: var(--grey-200);
+  --rezen-btn-outline-border-hover: var(--grey-300);
+  --rezen-btn-outline-ink: var(--grey-950);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rezen-btn-gap);
+  box-sizing: border-box;
+  height: var(--rezen-btn-height);
+  padding: var(--rezen-btn-padding);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-family: var(--font-family-body);
+  font-size: var(--rezen-btn-font-size);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.rezen-btn:hover { text-decoration: none; }
+.rezen-btn-label { color: inherit; }
+/* The wordmark is an image, never recoloured: the white asset on the filled
+ * variant, the black asset on the outline variant. */
+.rezen-btn-logo { display: block; height: var(--rezen-btn-logo); width: auto; }
+.rezen-btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+.rezen-btn.filled {
+  background: var(--rezen-btn-fill);
+  border-color: var(--rezen-btn-fill);
+  color: var(--text-inverse);
+}
+.rezen-btn.filled:hover {
+  background: var(--rezen-btn-fill-hover);
+  border-color: var(--rezen-btn-fill-hover);
+}
+.rezen-btn.filled:active {
+  background: var(--rezen-btn-fill-active);
+  border-color: var(--rezen-btn-fill-active);
+}
+.rezen-btn.outline {
+  background: var(--rezen-btn-outline-bg);
+  border-color: var(--rezen-btn-outline-border);
+  color: var(--rezen-btn-outline-ink);
+}
+.rezen-btn.outline:hover {
+  background: var(--rezen-btn-outline-bg-hover);
+  border-color: var(--rezen-btn-outline-border-hover);
+}
+.rezen-btn.outline:active {
+  background: var(--rezen-btn-outline-bg-active);
+  border-color: var(--rezen-btn-outline-border-hover);
+}
+
+/* Loading and disabled: the resting colours at half opacity. Loading adds a
+ * spinner on the left and takes the pointer away; set aria-busy with it. */
+.rezen-btn.is-loading,
+.rezen-btn:disabled,
+.rezen-btn[aria-disabled="true"] { opacity: .5; }
+.rezen-btn:disabled,
+.rezen-btn[aria-disabled="true"] { cursor: default; }
+.rezen-btn.is-loading { pointer-events: none; }
+.rezen-btn.filled.is-loading,
+.rezen-btn.filled:disabled,
+.rezen-btn.filled[aria-disabled="true"] {
+  background: var(--rezen-btn-fill);
+  border-color: var(--rezen-btn-fill);
+}
+.rezen-btn.outline.is-loading,
+.rezen-btn.outline:disabled,
+.rezen-btn.outline[aria-disabled="true"] {
+  background: var(--rezen-btn-outline-bg);
+  border-color: var(--rezen-btn-outline-border);
+}
+.rezen-btn.is-loading::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  animation: rezen-btn-spin .8s linear infinite;
+}
+@keyframes rezen-btn-spin {
+  to { transform: rotate(1turn); }
+}
+/* The mark-and-text layout: the bracket mark on the left, then the whole
+ * label as text — no wordmark image. Same heights, radius, border and type;
+ * a wider gap. The mark takes the label colour on the filled variant and the
+ * near-black on the outline variant. */
+.rezen-btn.icon-left,
+.rezen-btn.icon-left.m,
+.rezen-btn.icon-left.l { --rezen-btn-gap: 12px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.s { --rezen-btn-gap: 8px; --rezen-btn-mark: 16px; }
+.rezen-btn.icon-left.xs { --rezen-btn-gap: 6px; --rezen-btn-mark: 14px; --rezen-btn-padding: 0 11px; }
+.rezen-btn-mark { display: block; flex: none; height: var(--rezen-btn-mark, 16px); width: auto; }
+.rezen-btn.outline .rezen-btn-mark { color: var(--black); }
+
+/* A specimen: drawn like the button, but not one — no pointer, no states. */
+.rezen-btn.specimen { pointer-events: none; }
+
+/* Under each call to action: styles that differ from it. */
+.styles { margin: 24px 0 0; }
+.styles-label,
+.styles-note {
+  margin: 0 0 12px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
+}
+.styles-note { margin: 12px 0 0; }
+.styles-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ---- the plain button: used where the page acts on itself ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-family: var(--font-family-body);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.btn.s { height: 38px; font-size: 14px; }
+.btn:hover { text-decoration: none; }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+/* Ghost: the quietest step. Pulled left by its own padding so the label
+ * lines up with the column. */
+.btn-ghost {
+  margin-left: -16px;
+  background: transparent;
+  color: var(--text-brand);
+}
+.btn-ghost:hover { background: var(--blue-50); }
+.btn-ghost:active { background: var(--blue-100); }
+
+/* ---- values the flow returns: always mono ---- */
+table.kv {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  line-height: 20px;
+}
+table.kv td {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: top;
+}
+table.kv tr:last-child td { border-bottom: 0; }
+table.kv td:first-child {
+  width: 34%;
+  padding-right: 16px;
+  color: var(--text-tertiary);
+}
+table.kv td:last-child { color: var(--text-primary); word-break: break-word; }
+
+.card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 2px 16px;
+}
+
+/* ---- granted scope: one badge per scope ----
+ * The scopes that release identity claims are neutral; everything else is a
+ * data scope on the Real API and carries the brand tone. */
+ul.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  line-height: 1;
+  white-space: nowrap;
+}
+.badge.brand {
+  background: var(--blue-50);
+  border-color: var(--blue-200);
+  color: var(--blue-900);
+}
+
+/* ---- what happened: a timeline, one marker per step ---- */
+ol.steps {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 2px 28px;
+  border-left: 1px solid var(--border-default);
+}
+ol.steps li {
+  position: relative;
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 20px;
+}
+ol.steps li:last-child { margin-bottom: 0; }
+ol.steps li::before {
+  content: "✓";
+  position: absolute;
+  left: -39px;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-brand);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+/* A step that reports a failure gets the danger marker. */
+ol.steps li.warn::before {
+  content: "!";
+  background: var(--red-50);
+  border-color: var(--red-200);
+  color: var(--red-500);
+}
+
+/* ---- the two ways out, side by side, both quiet ---- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 32px 0 0 -16px;
+}
+.actions .btn-ghost { margin-left: 0; }
+.actions-note {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 18px;
+}
+.btn[aria-disabled="true"] {
+  opacity: .55;
+  pointer-events: none;
+}
+
+/* ---- an inline alert: tinted, bordered, dark type ---- */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 20px;
+}
+.alert p { margin: 0; }
+.alert-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+}
+.alert-danger {
+  background: var(--red-50);
+  border-color: var(--red-200);
+}
+.alert-danger .alert-icon { color: var(--red-500); }
+
+/* ---- one orchestrated reveal on load, and nothing else moving ---- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.reveal > *,
+.panel.reveal > * { animation: rise .5s cubic-bezier(.22, .68, .28, 1) both; }
+.reveal > :nth-child(1) { animation-delay: 0ms; }
+.reveal > :nth-child(2) { animation-delay: 90ms; }
+.reveal > :nth-child(3) { animation-delay: 180ms; }
+.reveal > :nth-child(4) { animation-delay: 270ms; }
+.reveal > :nth-child(5) { animation-delay: 360ms; }
+.reveal > :nth-child(6) { animation-delay: 450ms; }
+.reveal > :nth-child(n + 7) { animation-delay: 540ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* ---- browser sample only: the popup and the states the script toggles ---- */
+[hidden] { display: none !important; }
+
+.status {
+  margin: 16px 0 0;
+  min-height: 1.2em;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 16px;
+}
+
+/* ---- the popup: 520x720, so the column centres ---- */
+.signing .wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px 32px 40px;
+}
+.signing .restart { display: none; margin: 24px 0 0; }
+/* The one message line is a plain caption while the flow runs and becomes an
+ * alert if it fails — the script only ever sets its text. */
+.notice { display: flex; align-items: flex-start; gap: 12px; }
+.notice .alert-icon { display: none; }
+.message { margin: 0; color: var(--text-tertiary); font-size: var(--fs-body-sm); line-height: 20px; }
+.signing.is-error .notice {
+  padding: 12px 16px;
+  border: 1px solid var(--red-200);
+  border-radius: var(--radius);
+  background: var(--red-50);
+}
+.signing.is-error .notice .alert-icon { display: block; color: var(--red-500); }
+.signing.is-error .message { color: var(--text-secondary); }
+.signing.is-error .progress { display: none; }
+.signing.is-error .restart { display: block; }
+
+.progress {
+  position: relative;
+  overflow: hidden;
+  width: 220px;
+  max-width: 100%;
+  height: 4px;
+  margin: 24px 0 0;
+  border-radius: var(--radius);
+  background: var(--grey-200);
+}
+.progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  border-radius: var(--radius);
+  background: var(--blue-500);
+  animation: slide 1.25s ease-in-out infinite;
+}
+@keyframes slide {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(360%); }
+}

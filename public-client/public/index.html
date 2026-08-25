@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/rezen-logo-black.svg">
+<title>Sign in with reZEN</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <section id="signed-out" class="wide">
+    <div class="alert" id="landing-notice" role="status" hidden>
+      <svg class="alert-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 3.4a.9.9 0 0 1 .9.9v4a.9.9 0 0 1-1.8 0v-4a.9.9 0 0 1 .9-.9Zm0 7.1a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1Z"/></svg>
+      <p id="landing-notice-text"></p>
+    </div>
+    <div class="panels">
+
+      <div class="panel panel-light reveal">
+        <img class="panel-logo" src="/rezen-logo-black.svg" alt="reZEN">
+        <p class="panel-kicker">On a light background</p>
+        <h1>Sign in with reZEN</h1>
+        <p class="panel-copy">This sample runs the authorization code flow with PKCE entirely in the
+        browser, verifies your identity, and calls one Real API on your behalf.</p>
+        <p class="cta"><button id="login-button" class="rezen-btn filled l" type="button" aria-label="Sign in with reZEN" disabled><span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-white.svg" alt="reZEN"></button></p>
+        <p class="caption">Sign in with your reZEN account to continue</p>
+        <div class="styles" aria-hidden="true">
+          <p class="styles-label">Other styles</p>
+          <div class="styles-row">
+            <span class="rezen-btn specimen filled rezen s"><span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-white.svg" alt=""></span>
+            <span class="rezen-btn specimen filled neutral s"><span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-white.svg" alt=""></span>
+            <span class="rezen-btn specimen filled navy s icon-left"><svg class="rezen-btn-mark" viewBox="0 0 11.78 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7.25 0v1.81H1.81v10.87H0V0Zm-2.72 16v-1.81h5.44V3.32h1.81V16Z"/></svg><span class="rezen-btn-label">Sign in with reZEN</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-dark reveal">
+        <img class="panel-logo" src="/rezen-logo-white.svg" alt="reZEN">
+        <p class="panel-kicker">On a dark background</p>
+        <h2 class="display">Sign in with reZEN</h2>
+        <p class="panel-copy">The same flow, the same client, the same button — drawn for a dark
+        page. Either button starts the sign-in.</p>
+        <p class="cta"><button id="login-button-dark" class="rezen-btn outline l" type="button" aria-label="Sign in with reZEN" disabled><span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-black.svg" alt="reZEN"></button></p>
+        <p class="caption">Sign in with your reZEN account to continue</p>
+        <div class="styles" aria-hidden="true">
+          <p class="styles-label">Other styles</p>
+          <div class="styles-row">
+            <span class="rezen-btn specimen outline navy s icon-left"><svg class="rezen-btn-mark" viewBox="0 0 11.78 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M7.25 0v1.81H1.81v10.87H0V0Zm-2.72 16v-1.81h5.44V3.32h1.81V16Z"/></svg><span class="rezen-btn-label">Sign in with reZEN</span></span>
+            <span class="rezen-btn specimen filled rezen s"><span class="rezen-btn-label">Sign in with</span><img class="rezen-btn-logo" src="/rezen-logo-white.svg" alt=""></span>
+          </div>
+          <p class="styles-note">Outline is the same in every fill style</p>
+        </div>
+      </div>
+
+    </div>
+    <p id="status" class="status"></p>
+  </section>
+
+  <section id="signed-in" class="col reveal" hidden>
+    <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1>Signed in with reZEN</h1>
+    <h2 class="section-label">Identity</h2>
+    <table class="kv">
+      <tr><td>sub</td><td id="id-sub"></td></tr>
+      <tr><td>name</td><td id="id-name"></td></tr>
+      <tr><td>email</td><td id="id-email"></td></tr>
+      <tr><td>yentaId</td><td id="id-yentaid"></td></tr>
+    </table>
+    <h2 class="section-label">Granted scope</h2>
+    <ul class="badges" id="id-scope"></ul>
+    <h2 class="section-label">Profile</h2>
+    <div class="card" id="profile-table" hidden>
+      <table class="kv">
+        <tr><td>displayName</td><td id="profile-displayname"></td></tr>
+        <tr><td>type</td><td id="profile-type"></td></tr>
+      </table>
+    </div>
+    <p id="profile-skip" class="caption" hidden></p>
+    <h2 class="section-label">What happened</h2>
+    <ol id="steps" class="steps"></ol>
+    <div class="actions">
+      <a id="sign-out-link" class="btn btn-ghost s" href="#" role="button">Sign out</a>
+      <a id="disconnect-link" class="btn btn-ghost s" href="#" role="button">Disconnect</a>
+    </div>
+    <p class="actions-note">Sign out ends this session. Disconnect also removes this app&rsquo;s access to your reZEN account &mdash; sign in again whenever you want to reconnect.</p>
+  </section>
+
+  <section id="error-box" class="col reveal" hidden>
+    <img class="brandmark" src="/rezen-logo-black.svg" alt="reZEN">
+    <h1>Sign-in failed</h1>
+    <div class="alert alert-danger" role="alert">
+      <svg class="alert-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 3.4a.9.9 0 0 1 .9.9v4a.9.9 0 0 1-1.8 0v-4a.9.9 0 0 1 .9-.9Zm0 7.1a1.05 1.05 0 1 1 0 2.1 1.05 1.05 0 0 1 0-2.1Z"/></svg>
+      <p id="error-message"></p>
+    </div>
+    <p><a href="/">Start again</a></p>
+  </section>
+
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

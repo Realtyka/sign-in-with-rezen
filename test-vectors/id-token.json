@@ -1,0 +1,87 @@
+{
+  "note": "Shared id_token test vector. Both samples verify id_tokens with their own code — confidential-client/src/oidc.js uses Node crypto, public-client/public/oidc.js uses Web Crypto — and both test suites run every case below through their own verifyIdToken(). The two implementations must agree, case for case and message for message, so a tightening in one cannot quietly skip the other. Generated once with node:crypto. Public keys and signed tokens only: the private keys were discarded and nothing here is a credential for anything.",
+  "params": {
+    "issuer": "https://issuer.example.com",
+    "clientId": "app_example_client",
+    "nonce": "n_example_7f4c2a19d0b3"
+  },
+  "jwks": {
+    "keys": [
+      {
+        "kty": "RSA",
+        "n": "jSHQSweXFqrSrRYuiFdvyy1wf5WOekcJzrFnKsYHnqFLZgaSzBotHYlOrB2zhgVei2-kZvOWhanUGC5np516pZFfSgL5B3v03bl_GXWRQW69q6w7deiK3mdsTsOs-jIWq4XrmNcskhXqaFAQ6uegmxcisoEhhC70VnBlXajAEMBwFO47xriLG-TfhL-XuHo3bE5sN-6hkx46eOV6DfV3yXH1C5BwWH3yks47w66N264lny-NCgm7cW_Yr3JA7rJebH9D08TT5N_E93nl6CHn3wtXdpkLOR0ctfYPcqACad1D4upwbJX1WfUZGEFywYG1AcIJ3u_LKHLZCwxcPjttuw",
+        "e": "AQAB",
+        "kid": "test-vector-key-1",
+        "use": "sig",
+        "alg": "RS256"
+      }
+    ]
+  },
+  "valid": {
+    "name": "a well-formed RS256 id_token from the published key",
+    "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.DbE3APbdqF6sxthmzNIVyPgpi5Pdly6Xuewb1nxYk3HTvTmsr33-L1EAyPzTXrrq5i8UtNU9MhjZHWTpPosudWxhxwgGvyOWHg5HS2xI4Nj7H3bZdaY3ZUppVw5xAqvNsvUWqynMP9cx3j97-4xGuMpJ4CMSVQvxZy5Xq-mL6hzYLCgvmPGyZxlHukKo4urwNCapSFjWKC1WoZjfmefSEgbpm2QpRia3SesC_rmiXQLdbeSUw2n0okifiGSl2cKRXwBa1FvUBgVLdDk-2Aj3BBpzuiOVzxdBmzy6r4AwU9NEsm5PeeBOSAUMd2Af88U71jVIhxHZR1dYYsf1UVcMJQ",
+    "claims": {
+      "iss": "https://issuer.example.com",
+      "aud": "app_example_client",
+      "sub": "user-example-0001",
+      "exp": 4102444800,
+      "iat": 1735689600,
+      "nonce": "n_example_7f4c2a19d0b3",
+      "name": "Ada Lovelace",
+      "email": "ada@example.com",
+      "yentaId": "yenta-example-0001"
+    }
+  },
+  "invalid": [
+    {
+      "name": "signed with a different RSA key (valid RS256, wrong key)",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.Nd4Ab_6ncaEhBUS8Tv0cbzNZUZ_pghNu1IllMI648alIrM34e81uZsq-GFPyw6HrGPHSgftGG1gC1rAeG4SbRl5YfDbZgAgEwjd3IUMfHKKtdlZttUA2X79v6dE-WJTjBkdXEBR27iTB7zFi_XLiT42uZXkpzm7pIULtKj1avW8TDWsbYI7ik67VLizz9cDMfzGaEw1TVhY50Gbi_LoxaTzDCovqTwaygJM3AUcsH5Zr60x4ZeIaa04bCo-WQeQHGh0AoE-awpkl0HA453EpGN1GERzYBFDfOVLjxrPpNFIF-0SzxjKdA6HMeik7iF4VISz2xIHqfhPwpcdhBO6JXQ",
+      "expect": "signature is invalid"
+    },
+    {
+      "name": "alg is HS256, not RS256",
+      "idToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.SAJX2V0my9y3f1guQggOW0WHxhMqe-8MDvINbMNjTzE",
+      "expect": "must be RS256"
+    },
+    {
+      "name": "kid names a key that is not in the JWKS",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im5vdC1hLXB1Ymxpc2hlZC1rZXkifQ.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.GN7c0CGXNJxA7OWFIKgS5IycZlWYzVL8rKijT13RRmrcfv9XV_V80ntjBuw4YIXU50k1EaVVeMb46TsBsRLlnjcwbzGZjGLbltYMtvOiO0uYwP73uNE8WLkeW1R6ixI0aMsS1_ltFOxcON6Y78gBusRmuY_38ysMC3swv8AXH4EoEf7iwpOeUEGsFSmspjoUIpNxBloXRDtNRKKj2pZCE7EIvlA5XCtqLP3DJzOqT3rEk17sZJKIqRt-VZWdIO5AS3ZXnaj6txSmBuu5Gp-HvintpIAc7Sg2EPiT63K27HEKllvDyEvvQLL8WT66_q4gG_YIpC2Yt69zwZGEpZP1NA",
+      "expect": "no signing key found"
+    },
+    {
+      "name": "the signed iss claim names a different issuer",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL3NvbWVvbmUtZWxzZS5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.QxZB2tPoUFyW0ZdyJcVQC0TK-5qbPb4GAvwOVWixsgpqtL-kcu6nK2wLsBuEe-DEbFUdpJx6-3Wr-2ITMvwPHtAenRHlViJmMnowrt1MmhDivd1ly3uCUf0VWS5hjy8yAUr9xyxUlCNREZzsHlJLVbHWBuwkL6nHB96ThwqvkSa-8qXTqeb6gnQ_sR35G-41_p8ITeme9OM7FGz3Izcbkw2NFI1mQW5pm9wqapeYybU4v3YknxGxJB4cC16rWGygPNNgqDmz6sRH455GYcr0mZqUZDy5EEK-kmsyHwdC3FEzQAevZ06fJTJ0KaJB2OqhbxvZ6GGLu5_0qtHZ2_J2Rg",
+      "expect": "iss mismatch"
+    },
+    {
+      "name": "aud does not include this client",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9zb21lb25lX2Vsc2VzX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.RaAgpANQ_hWMKb4fjPS1Kul6n7qCbtMoFLNt__qao6kc2HP_LzoqVDBBPriFCpOKHjwAUHSY0BGfm2sE3vj8zg9bSPVOTwcVxyg2kwFxSnfr-YQ5y2fvpGid0aMnzq-InfyvIC74KvpJCHKki5ReaIOApFcTkbSggFKtIkFIBDF5dSluD1M3J5l55U_5ETCs8DLdOT1kB7_4Rfwxd_SbScXEuAUmRkoqCf7AhtvpLVJsIBNq8ykdxkg3hjhS9RDUlk6oAcXlYKyXX4nJZJWcXNOlTunnArSt9tttWGp4naVDgzb_TdE6kTq-DBXsP_H9rxiTwIqUBwk-XSXcHsGIGg",
+      "expect": "aud does not include"
+    },
+    {
+      "name": "more than one aud value and no azp naming this client",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6WyJhcHBfZXhhbXBsZV9jbGllbnQiLCJhcHBfb3RoZXJfY2xpZW50Il0sInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.CYtYoxmTu5jtvj5tnHYa0EUmdn-n343_W-nYM0BSHWCIzC99ae-dHtnMCgP8wqZBQ5hTcxGbl1M8SpGUl_MOzeN0eXj1HSbvRLfrZ5vm1kZw4wOpHR00UKcDXohjnP9e3wZizISlvAm3pBloL6yz6ZJs5pDqQKrPyY9oWkj-Vkdf1hwWFGWbm11FKqy2ZSZyub7ZFyAE91VmAdFdi0aTkzItkF1cqRFusZuUz_rXs2ZfTRputxBq9je9aqYuVJcEMUv8hzvIPKsg__WjYOT_q0UaANj-mWInOLxwz1ExlP643iwczhQUBfDdL8g3vtl5pFNdhuiZbIxm2OayxO5cYw",
+      "expect": "azp must equal"
+    },
+    {
+      "name": "azp names a different client",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEiLCJhenAiOiJhcHBfb3RoZXJfY2xpZW50In0.MtmR0bIFrr2O8soQANBGxdRuaxDMogJaohd3A1OAV1HDTuxKBdoV3f1Zxycl9stGF8jPYH9LlFA2H2eWgIQIyu50TOPbDgCowU-ZJ2ZKtoh0-JuODWek6VxPd_LCaJbTNp-SwnGKJ4VZztt01EqzcoPe-ho1FupeY_KgwAKqH_BIvt8xQamzfPWnT1WSd8JT3pnXr1pvLgXV22mD9zLE196-AW823kBolfYL7aIYNhdufMhqSf5oqCFKls1QgiiNx7xbKJucYCUGwVkIrismS_fKH3tLieSDIFxFqVzAImFZihMGtSy5VhLQghI4VKnPPumiQ2-gbO-6X-_j7L4ufw",
+      "expect": "azp must equal"
+    },
+    {
+      "name": "expired well outside the clock-skew leeway",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjoxNzM1Njg5NjAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.JM42KQIKmrmz3UVVRKdSyBkPjeGKl1cYPGu8MyAl3DEcBf9RrT0cGQjMFDmpQ5oICwC8RViPBJZ3qdlZnlbJGOluQehkvnMqdE4PM8ur0dg6a0uiROxO1ph4M7Iu8m4e2jkHeFLtpCH1ihvpYgDcQR-wfxWn_peIMOXTF6YI2c2TzydnydwmSBXyPBNXbFrC1Xnw-kSUnR0z0zQqbwJ12cOBi73LqoX-lnJZA9-PZamhszf15KuGkwqFfr2KIML3cEH_WTpwKI1MTcQO2-SW56e2Jnu7vAcrSfr0Nz3Nf5nkXzd534Yku6bMscvRH2u7OnGwxyygKqBi6xsMES7maw",
+      "expect": "has expired"
+    },
+    {
+      "name": "iat is far in the future",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjQxMDI0NDQ4MDAsIm5vbmNlIjoibl9leGFtcGxlXzdmNGMyYTE5ZDBiMyIsIm5hbWUiOiJBZGEgTG92ZWxhY2UiLCJlbWFpbCI6ImFkYUBleGFtcGxlLmNvbSIsInllbnRhSWQiOiJ5ZW50YS1leGFtcGxlLTAwMDEifQ.WRZkTo7QMWkSVHfwXkv_GB_WAU2EvgneRf04yMGqyv22cawjyXB5IQE7R3lKBamN7Z1XtwsqPaY_U0y2tVmPCEj8k44ZUAKoYik27s1eaCPhGDdMLegkZgCGoVGdVLEgJ8zCLJt6AGRzk21ZdcLBzwpy0iGm9gZi5ESTkWiV2KEOkS9Wb8uhfIW1UtvIwNKf6rdzDGh98nyWowexwFvVisqDkdyxvCzL6Hj5ErIdSinl4qMAaBftVCjeU_W3oVzP8Bxzeu52OGSkiavzRvUi1GRNbRtMBm2lE1EzOENbxwlqXhvOESYEEYhbdjZdnTLOshY1YXpXPadEZzZWaVSaFw",
+      "expect": "iat is missing or in the future"
+    },
+    {
+      "name": "nonce does not match the one sent to /authorize",
+      "idToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QtdmVjdG9yLWtleS0xIn0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlLmNvbSIsImF1ZCI6ImFwcF9leGFtcGxlX2NsaWVudCIsInN1YiI6InVzZXItZXhhbXBsZS0wMDAxIiwiZXhwIjo0MTAyNDQ0ODAwLCJpYXQiOjE3MzU2ODk2MDAsIm5vbmNlIjoibl9ub3RfdGhlX29uZV93ZV9zZW50IiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsImVtYWlsIjoiYWRhQGV4YW1wbGUuY29tIiwieWVudGFJZCI6InllbnRhLWV4YW1wbGUtMDAwMSJ9.RuWQ3f2CvH60rLFzCLqt_C0TP5ThsJspt-oufCVLpxOkv6RPRt_Jt3NTfk8foBcaRInxt5A3_6HRLmDVwlQiDYVlEDsHAG0l8rEfqWvdy57yz9TSClsSyg-UAXpGQqngeJylDsyI8SiOesMZpWuuYz2XYXi6UCGMKpKIL-a3GW0oo9Rbxw05U7xciZtsQ_CGp6phADyGUM9sb5xf_IVwyVCTWlNptG-HdpJ30oayGhfK682ZnLlPBlQey7mnFw7AobvmB4sMMZTiMYekWFVSqURSWgT5bN0g7E88RkhT11gWodqKCZqw8Xct5pJj_Z7zgLjV9faduHILnlg38HCEow",
+      "expect": "nonce does not match"
+    }
+  ]
+}
