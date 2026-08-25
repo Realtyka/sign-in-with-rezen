@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -78,8 +78,13 @@ export function createServer(config) {
     const pathname = new URL(req.url, 'http://placeholder').pathname;
 
     if (pathname === '/config.js') {
-      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', ...headers });
-      return res.end(configScript(config));
+      const body = configScript(config);
+      res.writeHead(200, {
+        'Content-Type': 'text/javascript; charset=utf-8',
+        'Content-Length': Buffer.byteLength(body),
+        ...headers,
+      });
+      return res.end(req.method === 'HEAD' ? undefined : body);
     }
 
     const relative = ROUTES[pathname] || pathname.replace(/^\/+/, '');
@@ -90,9 +95,16 @@ export function createServer(config) {
     if (!existsSync(filePath)) return notFound(res);
 
     try {
-      const body = await readFile(filePath);
       const type = CONTENT_TYPES[extname(filePath)] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': type, ...headers });
+      // HEAD answers with the headers a GET would send and no body — so the
+      // size comes from stat(), not from reading a file nobody asked for.
+      if (req.method === 'HEAD') {
+        const { size } = await stat(filePath);
+        res.writeHead(200, { 'Content-Type': type, 'Content-Length': size, ...headers });
+        return res.end();
+      }
+      const body = await readFile(filePath);
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': body.length, ...headers });
       res.end(body);
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', ...headers });
@@ -112,6 +124,7 @@ if (isMain) {
   server.listen(config.port, () => {
     console.log(`Sign in with reZEN (public client) listening at http://[::1]:${config.port}`);
     console.log(`Issuer:       ${config.issuer}`);
+    console.log(`API base:     ${config.apiBase}`);
     console.log(`Redirect URI: ${config.redirectUri}`);
     console.log(`Scopes:       ${config.scopes.join(' ')}`);
   });

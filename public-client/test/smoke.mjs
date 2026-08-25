@@ -7,9 +7,10 @@ import assert from 'node:assert';
 import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as cryptoSign } from 'node:crypto';
 import http from 'node:http';
 import { createServer as createNetServer } from 'node:net';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   apiCall,
@@ -18,6 +19,7 @@ import {
   exchangeCode,
   pkce,
   randomToken,
+  revoke,
   userinfo,
   verifyIdToken,
 } from '../public/oidc.js';
@@ -81,6 +83,10 @@ function withCors(res) {
 // without any extra wiring in the sample itself.
 async function startStub() {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  // A second key pair that is never published in the JWKS — the 'wrong-key'
+  // mode signs a perfectly well-formed RS256 token with it, so nothing
+  // before the signature check has anything to object to.
+  const { privateKey: unpublishedKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const kid = 'test-key-1';
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig', alg: 'RS256' };
 
@@ -91,8 +97,11 @@ async function startStub() {
 
   const codes = new Map(); // code -> { codeChallenge, redirectUri, nonce, scope }
   const accessTokens = new Set();
+  const refreshTokens = new Set();
+  const revocations = [];
   let tokenMode = 'ok';
   let discoveryMode = 'ok';
+  let revokeMode = 'ok';
 
   function json(res, status, body) {
     withCors(res);
@@ -116,6 +125,7 @@ async function startStub() {
           authorization_endpoint: `${issuerUrl}/authorize`,
           token_endpoint: `${issuerUrl}/token`,
           userinfo_endpoint: `${issuerUrl}/userinfo`,
+          revocation_endpoint: `${issuerUrl}/revoke`,
           jwks_uri: `${issuerUrl}/jwks`,
         });
       }
@@ -185,16 +195,43 @@ async function startStub() {
         if (tokenMode === 'multi-aud-ok') claims.azp = CLIENT_ID;
         const idToken = tokenMode === 'bad-alg'
           ? signHS256('not-a-real-secret', { alg: 'HS256', typ: 'JWT' }, claims)
-          : signRS256(privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
+          : signRS256(tokenMode === 'wrong-key' ? unpublishedKey : privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
 
+        const refreshToken = `rt_test_${randomBytes(8).toString('hex')}`;
+        refreshTokens.add(refreshToken);
         return json(res, 200, {
           access_token: accessToken,
           token_type: 'Bearer',
           expires_in: 43200,
           scope: entry.scope,
-          refresh_token: `rt_test_${randomBytes(8).toString('hex')}`,
+          refresh_token: refreshToken,
           id_token: idToken,
         });
+      }
+
+      // RFC 7009 revocation. Records every call so a test can assert what
+      // the sample sent, and checks the client authenticated the way a
+      // public client must: client_id in the body, no secret, no header.
+      if (req.method === 'POST' && url.pathname === '/revoke') {
+        let raw = '';
+        for await (const chunk of req) raw += chunk;
+        const form = new URLSearchParams(raw);
+        assert.equal(req.headers.authorization, undefined, 'a public revoke must never send Authorization');
+        assert.equal(form.get('client_id'), CLIENT_ID, 'a public revoke must send client_id in the body');
+        assert.equal(form.get('client_secret'), null, 'a public client has no secret to send');
+        const token = form.get('token');
+        assert.ok(token, '/revoke must be given a token');
+        const hint = form.get('token_type_hint');
+        assert.ok(hint === 'access_token' || hint === 'refresh_token', `/revoke token_type_hint should name a token type, got ${hint}`);
+        revocations.push({ token, hint });
+        if (revokeMode === 'unavailable') return json(res, 503, { error: 'temporarily_unavailable' });
+        // The cascade the guide describes: a refresh token takes its family
+        // and the keys minted under it; an access token takes that key alone.
+        if (refreshTokens.delete(token)) accessTokens.clear();
+        else accessTokens.delete(token);
+        withCors(res);
+        res.writeHead(200);
+        return res.end();
       }
 
       if (req.method === 'GET' && url.pathname === '/userinfo') {
@@ -243,6 +280,9 @@ async function startStub() {
     apiUrl,
     setTokenMode(mode) { tokenMode = mode; },
     setDiscoveryMode(mode) { discoveryMode = mode; },
+    setRevokeMode(mode) { revokeMode = mode; },
+    revocations,
+    accessTokens,
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -362,6 +402,7 @@ async function testProtocol() {
     ok(label);
   }
 
+  await expectRejected('wrong-key', 'verifyIdToken rejects a valid RS256 id_token signed with a key that is not in the JWKS');
   await expectRejected('bad-alg', 'verifyIdToken rejects an id_token whose alg is not RS256');
   await expectRejected('bad-nonce', 'verifyIdToken rejects a nonce mismatch');
   await expectRejected('bad-iss', 'verifyIdToken rejects an iss mismatch');
@@ -400,7 +441,109 @@ async function testProtocol() {
   assert.equal(meRes.body.displayName, TEST_PROFILE.displayName);
   ok('apiCall() sends the access token as x-api-key, never Authorization');
 
+  // --- disconnect: revoke() drives the guide's §8 action ---
+
+  // The page's Disconnect, with a refresh token in hand: revoking it takes
+  // the whole family and the API keys minted under it.
+  {
+    const { tokenRes: fresh } = await runAuthorizeExchange(discovery);
+    const before = stub.revocations.length;
+    const res = await revoke(discovery, {
+      clientId: CLIENT_ID,
+      token: fresh.body.refresh_token,
+      tokenTypeHint: 'refresh_token',
+    });
+    assert.equal(res.status, 200, 'revoking a refresh token should be accepted');
+    assert.equal(stub.revocations.length, before + 1, 'revoke() should call the endpoint exactly once');
+    const call = stub.revocations.at(-1);
+    assert.equal(call.hint, 'refresh_token');
+    assert.equal(call.token, fresh.body.refresh_token);
+    assert.equal(stub.accessTokens.size, 0, 'revoking the refresh token should take the keys minted under it');
+  }
+  ok('revoke() sends the refresh token with token_type_hint=refresh_token, client_id in the body, no secret');
+
+  // The same Disconnect after a reload. The refresh token is deliberately
+  // never persisted, so the access token is the only credential left — and
+  // revoking it kills that one key.
+  {
+    const { tokenRes: fresh } = await runAuthorizeExchange(discovery);
+    const survivingKey = fresh.body.access_token;
+    assert.ok(stub.accessTokens.has(survivingKey), 'the fresh access token should be live before the revoke');
+    const res = await revoke(discovery, {
+      clientId: CLIENT_ID,
+      token: survivingKey,
+      tokenTypeHint: 'access_token',
+    });
+    assert.equal(res.status, 200, 'revoking an access token should be accepted');
+    assert.equal(stub.revocations.at(-1).hint, 'access_token');
+    assert.equal(stub.revocations.at(-1).token, survivingKey);
+    assert.ok(!stub.accessTokens.has(survivingKey), 'revoking an access token should revoke that key');
+
+    const afterRes = await apiCall(stub.apiUrl, '/api/v1/users/me', survivingKey);
+    assert.equal(afterRes.status, 401, 'the revoked key should no longer work at the API');
+  }
+  ok('revoke() falls back to the access token when no refresh token is held, and that key stops working');
+
+  // A revoke the issuer could not complete is reported by status, not by
+  // throwing — the page still clears its local session either way.
+  stub.setRevokeMode('unavailable');
+  {
+    const { tokenRes: fresh } = await runAuthorizeExchange(discovery);
+    const res = await revoke(discovery, {
+      clientId: CLIENT_ID,
+      token: fresh.body.refresh_token,
+      tokenTypeHint: 'refresh_token',
+    });
+    assert.notEqual(res.status, 200, 'a revoke the issuer refused should not report success');
+  }
+  stub.setRevokeMode('ok');
+  ok('revoke() reports a non-200 rather than claiming success');
+
+  // Every endpoint comes from discovery — including this one.
+  await assert.rejects(
+    () => revoke({ ...discovery, revocation_endpoint: undefined }, {
+      clientId: CLIENT_ID,
+      token: 'real_test_whatever',
+      tokenTypeHint: 'access_token',
+    }),
+    undefined,
+    'revoke() should refuse to guess an endpoint the discovery document does not publish',
+  );
+  ok('revoke() refuses to run when discovery publishes no revocation_endpoint');
+
   await stub.close();
+}
+
+// The shared id_token test vector — the same bytes the server-side sample's
+// suite runs through its own verifyIdToken. See test-vectors/id-token.json.
+async function testSharedVector() {
+  const vectorPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'test-vectors', 'id-token.json');
+  const vector = JSON.parse(readFileSync(vectorPath, 'utf8'));
+  const options = {
+    jwks: vector.jwks,
+    issuer: vector.params.issuer,
+    clientId: vector.params.clientId,
+    nonce: vector.params.nonce,
+  };
+
+  const claims = await verifyIdToken(vector.valid.idToken, options);
+  assert.deepEqual(claims, vector.valid.claims, 'the shared vector\'s valid id_token should verify to its recorded claims');
+  ok(`shared vector: ${vector.valid.name}`);
+
+  for (const bad of vector.invalid) {
+    await assert.rejects(
+      () => verifyIdToken(bad.idToken, options),
+      (err) => {
+        assert.ok(
+          err.message.includes(bad.expect),
+          `shared vector: rejecting "${bad.name}" should say "${bad.expect}", got "${err.message}"`,
+        );
+        return true;
+      },
+      `shared vector: ${bad.name} should be rejected`,
+    );
+    ok(`shared vector rejects: ${bad.name}`);
+  }
 }
 
 async function testStaticServer() {
@@ -480,12 +623,52 @@ async function testStaticServer() {
   assert.equal(missingRes.status, 404);
   ok('GET /nope returns 404');
 
+  // HEAD answers with the headers a GET would send and an empty body.
+  for (const path of ['/', '/config.js']) {
+    const headRes = await fetch(base + path, { method: 'HEAD' });
+    const getRes = await fetch(base + path);
+    const body = await getRes.text();
+    assert.equal(headRes.status, 200, `HEAD ${path} should be 200`);
+    assert.equal(await headRes.text(), '', `HEAD ${path} should send no body`);
+    assert.equal(headRes.headers.get('content-type'), getRes.headers.get('content-type'), `HEAD ${path} should send the same content type as GET`);
+    assert.equal(
+      Number(headRes.headers.get('content-length')),
+      Buffer.byteLength(body),
+      `HEAD ${path} should report the length GET actually sends`,
+    );
+  }
+  ok('HEAD / and HEAD /config.js send GET\'s headers, an accurate Content-Length, and no body');
+
   await new Promise((resolve) => server.close(resolve));
+}
+
+// A PORT that is not a port falls back to the default with a note, rather
+// than failing deep inside listen() with an opaque socket error.
+function testBadPort() {
+  const scratch = mkdtempSync(join(tmpdir(), 'login-with-rezen-port-'));
+  const envPath = join(scratch, 'bad-port.env');
+  writeFileSync(envPath, 'PORT=not-a-port\nAPI_BASE=https://api.example.com\n');
+  process.env.LOGIN_WITH_REZEN_ENV = envPath;
+
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (message) => warnings.push(String(message));
+  try {
+    const config = loadConfig();
+    assert.equal(config.port, 4501, 'a non-numeric PORT should fall back to the default');
+    assert.equal(config.apiBase, 'https://api.example.com', 'API_BASE is read as given, never derived');
+    assert.ok(warnings.some((w) => w.includes('not-a-port')), 'the fallback should be announced');
+  } finally {
+    console.warn = realWarn;
+  }
+  ok('a non-numeric PORT falls back to the default with a console note');
 }
 
 async function main() {
   await testProtocol();
+  await testSharedVector();
   await testStaticServer();
+  testBadPort();
   console.log(`smoke: ${checks} checks passed`);
 }
 

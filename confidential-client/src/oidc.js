@@ -69,6 +69,13 @@ export async function exchangeCode(discovery, { clientId, clientSecret, code, re
 // Verifies signature (RS256 only — the header never chooses the algorithm),
 // issuer, audience, expiry, and nonce. Throws a descriptive error on any
 // failure; returns the claims only once everything checks out.
+//
+// The browser sample has the same function written against the Web Crypto
+// API — public-client/public/oidc.js. The two are deliberately identical in
+// what they accept, what they reject, and what they say when they reject;
+// ../../test-vectors/id-token.json is the shared vector both test suites run
+// through their own copy. Change one and you must change the other, or that
+// vector fails in the suite you didn't touch.
 export async function verifyIdToken(idToken, { jwks, issuer, clientId, nonce }) {
   const parts = String(idToken).split('.');
   if (parts.length !== 3) throw new Error('id_token is not a JWT');
@@ -116,6 +123,42 @@ export async function userinfo(discovery, accessToken) {
   // A non-JSON body (an HTML error page, say) becomes {} — callers decide on the status code.
   const body = await res.json().catch(() => ({}));
   return { status: res.status, body };
+}
+
+// Revocation (RFC 7009) — what "disconnect this app" means on the wire.
+// Revoking a refresh token revokes its whole family AND the API keys minted
+// under it; revoking an access token revokes that key alone. The user's
+// stored consent survives either way, so a later sign-in reconnects without
+// a new consent screen.
+//
+// The endpoint comes from discovery like every other one. The token goes in
+// the form body — never in the URL, never in a log line. Authentication is
+// the same as at the token endpoint: Basic for a confidential client,
+// client_id in the body for a public one.
+//
+// RFC 7009 §2.2: the endpoint answers 200 for an unknown, expired, or
+// foreign token as readily as for a live one — revocation is idempotent and
+// must not become an oracle for whether a token is valid. So 200 means
+// "revocation was accepted", not "that token existed".
+export async function revoke(discovery, { clientId, clientSecret, token, tokenTypeHint }) {
+  if (!discovery.revocation_endpoint) {
+    throw new Error('the issuer does not publish a revocation_endpoint');
+  }
+  const form = { token };
+  if (tokenTypeHint) form.token_type_hint = tokenTypeHint;
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+  if (clientSecret) {
+    const credentials = `${formEncode(clientId)}:${formEncode(clientSecret)}`;
+    headers.Authorization = `Basic ${Buffer.from(credentials).toString('base64')}`;
+  } else {
+    form.client_id = clientId;
+  }
+  const res = await fetch(discovery.revocation_endpoint, {
+    method: 'POST',
+    headers,
+    body: new URLSearchParams(form).toString(),
+  });
+  return { status: res.status };
 }
 
 // Real resource APIs take the access token as an API key, never Bearer.

@@ -518,7 +518,26 @@ ol.steps li.warn::before {
   color: var(--red-500);
 }
 
-.logout { margin: 32px 0 0; }
+/* ---- the two ways out, side by side, both quiet ---- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 32px 0 0 -16px;
+}
+.actions .btn-ghost { margin-left: 0; }
+.actions-note {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 18px;
+}
+.btn[aria-disabled="true"] {
+  opacity: .55;
+  pointer-events: none;
+}
 
 /* ---- an inline alert: tinted, bordered, dark type ---- */
 .alert {

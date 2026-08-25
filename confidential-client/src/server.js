@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { apiCall, authorizeUrl, discover, exchangeCode, pkce, userinfo, verifyIdToken } from './oidc.js';
+import { apiCall, authorizeUrl, discover, exchangeCode, pkce, revoke, userinfo, verifyIdToken } from './oidc.js';
 
 // The reZEN wordmark in its two official versions — black for light
 // backgrounds, white for dark. Read once at startup so the pages never reach
@@ -41,6 +41,19 @@ function redirect(res, location) {
 
 function requestUrl(req) {
   return new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+}
+
+// The CSRF defence for the state-changing routes, in full: they are POST
+// only, the session cookie is SameSite=Lax (so a cross-site POST arrives
+// without it), and the request must say it came from this origin.
+// Sec-Fetch-Site is sent by every current browser; Origin is the fallback
+// for anything that isn't one. Neither header present is a non-browser
+// caller (curl, the test suite), which no cross-site page can impersonate.
+function isSameOrigin(req, url) {
+  const site = req.headers['sec-fetch-site'];
+  if (site) return site === 'same-origin' || site === 'none';
+  const origin = req.headers.origin;
+  return !origin || origin === url.origin;
 }
 
 function escapeHtml(text) {
@@ -573,7 +586,23 @@ ol.steps li.warn::before {
   color: var(--red-500);
 }
 
-.logout { margin: 32px 0 0; }
+/* ---- the two ways out, side by side, both quiet ---- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 32px 0 0 -16px;
+}
+.actions form { margin: 0; }
+.actions .btn-ghost { margin-left: 0; }
+.actions-note {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  line-height: 18px;
+}
 
 /* ---- an inline alert: tinted, bordered, dark type ---- */
 .alert {
@@ -710,7 +739,28 @@ function otherStyles(variant) {
     + `<div class="styles-row">${row.join('')}</div>${note}</div>`;
 }
 
-function homePage(sessionData) {
+// Two ways out, and they are not the same thing.
+//
+// "Sign out" ends this app's session and nothing else: the server-side
+// session — and every token in it — is dropped, and the user's tokens at
+// reZEN are left alone. "Disconnect" is the guide's §8 action: it calls
+// /revoke first, so the refresh token family and the API keys minted under
+// it stop working at reZEN, and then ends the session too.
+//
+// Both are POSTs from a real form, not links. They change server state, and
+// a GET that changes state is a GET any other site can make on the user's
+// behalf with an <img> tag. The page carries no script (its own policy
+// allows none), so a plain form is the whole mechanism.
+const SIGNED_IN_ACTIONS = `
+      <div class="actions">
+        <form method="post" action="/sign-out"><button class="btn btn-ghost s" type="submit">Sign out</button></form>
+        <form method="post" action="/disconnect"><button class="btn btn-ghost s" type="submit">Disconnect</button></form>
+      </div>
+      <p class="actions-note">Sign out ends this app&rsquo;s session on this server and leaves your reZEN
+      tokens alone. Disconnect also revokes them at reZEN, so this app&rsquo;s access stops working —
+      your consent is kept, so signing in again does not ask you to approve anything twice.</p>`;
+
+function homePage(sessionData, notice) {
   if (sessionData?.identity) {
     const { sub, name, email, yentaId } = sessionData.identity;
     const identityRows = [
@@ -743,10 +793,11 @@ function homePage(sessionData) {
       ${profileBlock}
       <h2 class="section-label">What happened</h2>
       <ol class="steps">${steps}</ol>
-      <p class="logout"><a class="btn btn-ghost s" href="/sign-out">Sign out</a></p>
+      ${SIGNED_IN_ACTIONS}
     `);
   }
   return layout('Sign in with reZEN', `
+    ${notice ? `<div class="alert" role="status">${ALERT_ICON}<p>${escapeHtml(notice)}</p></div>` : ''}
     <div class="panels">
       <div class="panel panel-light reveal">
         <img class="panel-logo" src="/rezen-logo-black.svg" alt="reZEN">
@@ -794,6 +845,14 @@ function mapTokenError(err) {
 // without bound — both are sample-scale limits, not a real eviction policy.
 const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const SESSION_CAP = 1000;
+
+// What the landing page says after a disconnect. The session is gone by
+// then, so this line is where a revoke that failed gets reported — the local
+// session is dropped either way, but the user is told the difference.
+const DISCONNECT_NOTICES = {
+  ok: 'Disconnected — your app’s access was revoked.',
+  failed: 'Signed out, but the revoke call did not succeed — your tokens may still be live at reZEN.',
+};
 
 export function createServer(config) {
   // One in-memory session per signed-in visitor, keyed by an httpOnly cookie.
@@ -847,7 +906,7 @@ export function createServer(config) {
     try {
       if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname === '/') {
         const session = getSession(req);
-        const html = homePage(session?.data);
+        const html = homePage(session?.data, DISCONNECT_NOTICES[url.searchParams.get('disconnected')]);
         if (req.method === 'HEAD') {
           res.writeHead(200, {
             'Content-Type': 'text/html; charset=utf-8',
@@ -898,6 +957,12 @@ export function createServer(config) {
         if (!flow || url.searchParams.get('state') !== flow.state) {
           return sendHtml(res, errorPage('The state parameter did not match — start again.'), 400);
         }
+
+        // state really is one-time: the flow is spent the moment a callback
+        // presents the matching value, whether the rest of it succeeds or
+        // fails. Leaving it in place on a failure would let the same state
+        // be replayed at this callback until the session aged out.
+        session.data.flow = undefined;
 
         const errParam = url.searchParams.get('error');
         if (errParam) {
@@ -997,16 +1062,66 @@ export function createServer(config) {
         session.data.scope = tokenRes.body.scope || config.scopes.join(' ');
         session.data.profile = profile;
         session.data.steps = steps;
-        session.data.flow = undefined;
+        // Both tokens are kept server-side for the life of the session —
+        // this is the thing a confidential client is for. They are what
+        // /disconnect revokes; neither is ever rendered or logged.
+        session.data.accessToken = accessToken;
+        session.data.refreshToken = tokenRes.body.refresh_token;
 
         return redirect(res, '/');
       }
 
-      if (req.method === 'GET' && url.pathname === '/sign-out') {
+      // Both state-changing routes are POST and same-origin only; see
+      // isSameOrigin above. A GET says so rather than 404-ing, because a
+      // GET here is usually a bookmarked link from an older version.
+      if (url.pathname === '/sign-out' || url.pathname === '/disconnect') {
+        if (req.method !== 'POST') {
+          res.writeHead(405, { Allow: 'POST', 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+          return res.end('use POST — this route changes state');
+        }
+        if (!isSameOrigin(req, url)) {
+          res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+          return res.end('cross-site request refused');
+        }
+        req.resume(); // the forms carry no fields; drain the body and move on
         const session = getSession(req);
-        if (session) sessions.delete(session.id);
         res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
-        return redirect(res, '/');
+
+        // Sign out is local and stops here: the session and every token in
+        // it are dropped, and nothing is said to reZEN.
+        if (url.pathname === '/sign-out') {
+          if (session) sessions.delete(session.id);
+          return redirect(res, '/');
+        }
+
+        // Disconnect is the guide's §8 action. Revoke the refresh token —
+        // that takes its whole family and the API keys minted under it with
+        // it — and fall back to the access token if this session somehow
+        // holds no refresh token. Either way the local session goes: a
+        // revoke that fails must not leave the user apparently signed in.
+        if (!session) return redirect(res, '/');
+        const { refreshToken, accessToken } = session.data;
+        const token = refreshToken || accessToken;
+        let outcome = 'ok';
+        if (token) {
+          try {
+            const discovery = await getDiscovery();
+            const revokeRes = await revoke(discovery, {
+              clientId: config.clientId,
+              clientSecret: config.clientSecret,
+              token,
+              tokenTypeHint: refreshToken ? 'refresh_token' : 'access_token',
+            });
+            if (revokeRes.status !== 200) outcome = 'failed';
+          } catch {
+            // Network failure, discovery failure, an issuer that publishes
+            // no revocation_endpoint — the message is never logged, because
+            // the token is in the request that produced it.
+            outcome = 'failed';
+          }
+        }
+        sessions.delete(session.id);
+        return redirect(res, `/?disconnected=${outcome}`);
       }
 
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });

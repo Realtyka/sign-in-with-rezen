@@ -1,4 +1,4 @@
-import { apiCall, authorizeUrl, discover, pkce, randomToken, userinfo } from './oidc.js';
+import { apiCall, authorizeUrl, discover, pkce, randomToken, revoke, userinfo } from './oidc.js';
 import { CHANNEL_NAME, POPUP_NAME, SESSION_KEY, STASH_KEY } from './keys.js';
 
 const POPUP_CLOSE_POLL_MS = 500;
@@ -12,9 +12,13 @@ let popupWatcher;
 // loading state until the popup delivers a result or goes away.
 let loadingButton;
 // The refresh token lives only in this module-level variable — it is never
-// written to sessionStorage, and it is gone after a reload (this sample
-// does not implement refresh; see the README).
+// written to sessionStorage, so it is gone after a reload. That is the whole
+// reason Disconnect has two shapes: see disconnect() below.
 let refreshToken;
+// The access token of the session currently on screen. Mirrored into
+// sessionStorage too (unlike the refresh token), so it survives a reload —
+// it is what Disconnect revokes when the refresh token no longer exists.
+let accessToken;
 // The state of the flow this tab is waiting on, so a result meant for a
 // different tab (or a stale result from a closed popup) is never applied
 // here. Restored below from this tab's own stash — the popup's copy of the
@@ -203,6 +207,7 @@ async function completeAndRender(session) {
 
   const mirror = { ...session, claims, steps, profile, completed: true };
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(mirror));
+  accessToken = mirror.accessToken;
   renderSignedIn(mirror);
 }
 
@@ -254,11 +259,62 @@ function renderSignedIn(session) {
   showSection('signed-in');
 }
 
-function logOut() {
+// What the landing says after a disconnect. The session is gone by then, so
+// this line is where the outcome is reported — including which token was
+// revoked, and a revoke that did not succeed.
+const DISCONNECT_NOTICES = {
+  refresh_token: 'Disconnected — the refresh token was revoked, and with it the API keys minted under it.',
+  access_token: 'Disconnected — this tab held no refresh token after the reload, so the access token was revoked instead.',
+  failed: 'Signed out, but the revoke call did not succeed — your tokens may still be live at reZEN.',
+  none: 'Signed out — there was no token left in this tab to revoke.',
+};
+
+function showLandingNotice(text) {
+  $('landing-notice-text').textContent = text || '';
+  $('landing-notice').hidden = !text;
+}
+
+// Sign out is local and stops here: this tab forgets both tokens, and
+// nothing is said to reZEN. The tokens themselves stay live there until
+// they expire — that is what Disconnect is for.
+function signOut() {
   refreshToken = undefined;
+  accessToken = undefined;
   sessionStorage.removeItem(SESSION_KEY);
   $('status').textContent = '';
+  showLandingNotice('');
   showSection('signed-out');
+}
+
+// Disconnect is the guide's §8 action: revoke first, then forget.
+//
+// A refresh token takes its whole family and the API keys minted under it
+// with it, so that is what we send when this tab still has one. After a
+// reload it does not — the refresh token is deliberately never persisted —
+// and the access token is then the only credential left to revoke, which
+// kills that one key. The local session is cleared either way: a revoke
+// that fails must not leave the user apparently signed in.
+async function disconnect(link) {
+  const token = refreshToken || accessToken;
+  const tokenTypeHint = refreshToken ? 'refresh_token' : 'access_token';
+  if (!token) {
+    signOut();
+    showLandingNotice(DISCONNECT_NOTICES.none);
+    return;
+  }
+  link.setAttribute('aria-disabled', 'true');
+  let outcome = tokenTypeHint;
+  try {
+    const res = await revoke(discovery, { clientId: config.clientId, token, tokenTypeHint });
+    if (res.status !== 200) outcome = 'failed';
+  } catch {
+    // Network failure, or an issuer that publishes no revocation_endpoint.
+    // The error is never logged: the token is in the request that made it.
+    outcome = 'failed';
+  }
+  link.removeAttribute('aria-disabled');
+  signOut();
+  showLandingNotice(DISCONNECT_NOTICES[outcome]);
 }
 
 async function restoreSession() {
@@ -284,6 +340,7 @@ async function restoreSession() {
   }
 
   if (mirror.completed) {
+    accessToken = mirror.accessToken;
     renderSignedIn(mirror);
     return;
   }
@@ -316,9 +373,13 @@ async function boot() {
     button.disabled = false;
     button.addEventListener('click', onLoginClick);
   }
-  $('logout-link').addEventListener('click', (event) => {
+  $('sign-out-link').addEventListener('click', (event) => {
     event.preventDefault();
-    logOut();
+    signOut();
+  });
+  $('disconnect-link').addEventListener('click', (event) => {
+    event.preventDefault();
+    disconnect(event.currentTarget);
   });
 
   await restoreSession();

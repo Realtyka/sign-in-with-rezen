@@ -28,8 +28,8 @@ checklist — are in the vendor integration guide at
 If your contact gives you a different issuer for development, the same guide is served at
 `<issuer>/docs` there.
 
-**Cross-origin requests.** This app calls the issuer's token, JWKS, userinfo, and
-discovery endpoints directly from the browser, from your app's own origin. If the
+**Cross-origin requests.** This app calls the issuer's token, JWKS, userinfo, revocation,
+and discovery endpoints directly from the browser, from your app's own origin. If the
 issuer does not allow cross-origin requests from that origin, the code exchange fails
 with a CORS error in the browser console rather than an error from reZEN itself. If you
 see that, ask your Real contact to confirm your origin is allowed. The browser also
@@ -62,11 +62,17 @@ your redirect URI is registered as (see the guide's errors section).
 6. The result is handed to the main page over a `BroadcastChannel` (and `postMessage`
    when the popup still has an opener); the main page fetches `/userinfo`, then calls
    one Real API — your own profile — using the access token as an API key.
+7. **Disconnect** calls the issuer's `/revoke` — with the refresh token if this tab still
+   holds one, and with the access token if it doesn't (after a reload it never does) —
+   and then clears the tab's session. **Sign out** clears the tab's session and nothing
+   else.
 
 ## What the page shows
 
 Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actually
-granted, your profile (`displayName`, `type`), and the steps above as they happened.
+granted, your profile (`displayName`, `type`), and the steps above as they happened —
+and, at the bottom, the two ways out: **Sign out** and **Disconnect**. After a
+disconnect the landing says which token was revoked, or that the revoke did not succeed.
 
 The button follows the reZEN sign-in button specification — filled and outline
 variants, three fill styles (navy, reZEN, neutral), four sizes, a wordmark layout and a
@@ -82,8 +88,11 @@ npm test
 
 Runs entirely offline against a stub issuer and a stub API — no network access, no
 real credentials, no browser. It drives the protocol module (PKCE, the authorize
-request, the code exchange, id_token verification, `/userinfo`, the API call) and boots
-the static file server. The popup UI itself — the click, the popup window, the
+request, the code exchange, id_token verification, `/userinfo`, the API call, and
+`/revoke`) and boots the static file server. Run it from a full checkout of this
+repository: part of the suite is a shared id_token test vector at
+`../test-vectors/id-token.json`, which the server-side sample's suite runs through its
+own verifier too, so the two verifiers cannot drift. The popup UI itself — the click, the popup window, the
 `BroadcastChannel` handoff — is verified by hand in a real browser against the same
 kind of stub.
 
@@ -108,5 +117,23 @@ kind of stub.
   `Authorization: Bearer` (that header is used only for `/userinfo`).
 - The identity token is verified once, in the browser, on receipt, and then discarded —
   it's identity evidence, not a credential.
-- Refresh and revoke aren't implemented here — a public client has nowhere safe to keep
-  a refresh token between page loads; see the guide's refresh and security sections.
+- **Sign out and Disconnect are different actions, and only one of them talks to reZEN.**
+  Sign out forgets the tokens in this tab and leaves your tokens at reZEN alone until
+  they expire. Disconnect is the guide's §8 action — it calls `/revoke` first, then
+  forgets them. The tradeoff: sign out could revoke the access token too (that would kill
+  exactly that one key), and leaving it live for the rest of its 12 hours is a real, if
+  small, cost. This sample doesn't, for two reasons — a user who clicks "sign out"
+  expects a local, reversible act, and collapsing the two buttons into one would hide the
+  distinction the guide draws and vendors have to implement. If your product wants sign
+  out to revoke, the change is one call in `signOut()`; say so in your UI.
+- **Disconnect revokes whichever token this tab still has.** With a refresh token in
+  hand it sends that, which revokes the whole family and the API keys minted under it.
+  After a reload the refresh token is gone — it is deliberately never persisted — so it
+  sends the access token instead, which revokes that one key. That is the honest limit of
+  a browser-only client, and the landing says which of the two happened. A confidential
+  client keeps the refresh token server-side and never has the weaker case.
+- Your stored consent survives a disconnect. Signing in again is a redirect round-trip,
+  not a second consent screen — that is by design, and worth saying in your own UI so
+  "disconnect" doesn't read as "delete everything".
+- Refresh isn't implemented here — a public client has nowhere safe to keep a refresh
+  token between page loads; see the guide's refresh section.

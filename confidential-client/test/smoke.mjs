@@ -5,13 +5,14 @@ import assert from 'node:assert';
 import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as cryptoSign } from 'node:crypto';
 import http from 'node:http';
 import { createServer as createNetServer } from 'node:net';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { loadConfig } from '../src/config.js';
 import { createServer } from '../src/server.js';
-import { discover } from '../src/oidc.js';
+import { discover, verifyIdToken } from '../src/oidc.js';
 
 function getFreePort() {
   return new Promise((resolve, reject) => {
@@ -55,6 +56,10 @@ const TEST_PROFILE = { displayName: 'Ada Lovelace', type: 'AGENT' };
 // exchange without any extra wiring in the sample itself.
 async function startStub({ clientId, clientSecret }) {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  // A second key pair that is never published in the JWKS — the 'wrong-key'
+  // mode signs a perfectly well-formed RS256 token with it, so nothing
+  // before the signature check has anything to object to.
+  const { privateKey: unpublishedKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const kid = 'test-key-1';
   const jwk = { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig', alg: 'RS256' };
 
@@ -65,7 +70,10 @@ async function startStub({ clientId, clientSecret }) {
 
   const codes = new Map(); // code -> { codeChallenge, redirectUri, nonce, scope }
   const accessTokens = new Set();
+  const refreshTokens = new Set();
+  const revocations = [];
   let tokenMode = 'ok';
+  let revokeMode = 'ok';
   let userinfoMode = 'ok';
   let discoveryMode = 'ok';
 
@@ -83,6 +91,7 @@ async function startStub({ clientId, clientSecret }) {
         authorization_endpoint: `${issuerUrl}/authorize`,
         token_endpoint: `${issuerUrl}/token`,
         userinfo_endpoint: `${issuerUrl}/userinfo`,
+        revocation_endpoint: `${issuerUrl}/revoke`,
         jwks_uri: `${issuerUrl}/jwks`,
       });
     }
@@ -153,7 +162,7 @@ async function startStub({ clientId, clientSecret }) {
       const now = Math.floor(Date.now() / 1000);
       const multiAud = tokenMode === 'multi-aud-ok' || tokenMode === 'multi-aud-no-azp';
       const claims = {
-        iss: issuerUrl,
+        iss: tokenMode === 'bad-iss' ? `${issuerUrl}/not-the-issuer` : issuerUrl,
         aud: tokenMode === 'bad-aud' ? 'someone-elses-client' : multiAud ? [clientId, 'other-client'] : clientId,
         sub: TEST_USER.sub,
         exp: tokenMode === 'expired' ? now - 3600 : tokenMode === 'exp-leeway' ? now - 30 : now + 3600,
@@ -166,16 +175,53 @@ async function startStub({ clientId, clientSecret }) {
       if (tokenMode === 'multi-aud-ok') claims.azp = clientId;
       const idToken = tokenMode === 'bad-alg'
         ? signHS256('not-a-real-secret', { alg: 'HS256', typ: 'JWT' }, claims)
-        : signRS256(privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
+        : signRS256(tokenMode === 'wrong-key' ? unpublishedKey : privateKey, { alg: 'RS256', typ: 'JWT', kid }, claims);
 
+      const refreshToken = `rt_test_${randomBytes(8).toString('hex')}`;
+      refreshTokens.add(refreshToken);
       return json(res, 200, {
         access_token: accessToken,
         token_type: 'Bearer',
         expires_in: 43200,
         scope: tokenMode === 'no-scope' ? undefined : entry.scope,
-        refresh_token: `rt_test_${randomBytes(8).toString('hex')}`,
+        refresh_token: refreshToken,
         id_token: idToken,
       });
+    }
+
+    // RFC 7009 revocation. Records every call so a test can assert what the
+    // sample sent, and checks the client authenticated the way its client
+    // type requires — Basic for a confidential client, client_id in the body
+    // for a public one.
+    if (req.method === 'POST' && url.pathname === '/revoke') {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const form = new URLSearchParams(raw);
+      const authHeader = req.headers.authorization;
+      if (clientSecret) {
+        assert.ok(authHeader && authHeader.startsWith('Basic '), 'a confidential revoke must send Basic auth');
+        const decoded = Buffer.from(authHeader.slice('Basic '.length), 'base64').toString();
+        const sep = decoded.indexOf(':');
+        assert.equal(decodeURIComponent(decoded.slice(0, sep).replace(/\+/g, ' ')), clientId);
+        assert.equal(decodeURIComponent(decoded.slice(sep + 1).replace(/\+/g, ' ')), clientSecret);
+        assert.equal(form.get('client_id'), null, 'a confidential revoke must not also send client_id in the body');
+      } else {
+        assert.equal(authHeader, undefined, 'a public revoke must not send an Authorization header');
+        assert.equal(form.get('client_id'), clientId, 'a public revoke must send client_id in the body');
+        assert.equal(form.get('client_secret'), null, 'a public client has no secret to send');
+      }
+      const token = form.get('token');
+      assert.ok(token, '/revoke must be given a token');
+      const hint = form.get('token_type_hint');
+      assert.ok(hint === 'access_token' || hint === 'refresh_token', `/revoke token_type_hint should name a token type, got ${hint}`);
+      revocations.push({ token, hint });
+      if (revokeMode === 'unavailable') return json(res, 503, { error: 'temporarily_unavailable' });
+      // The cascade the guide describes: a refresh token takes its family
+      // and the keys minted under it; an access token takes that key alone.
+      if (refreshTokens.delete(token)) accessTokens.clear();
+      else accessTokens.delete(token);
+      res.writeHead(200);
+      return res.end();
     }
 
     if (req.method === 'GET' && url.pathname === '/userinfo') {
@@ -213,6 +259,9 @@ async function startStub({ clientId, clientSecret }) {
     setTokenMode(mode) { tokenMode = mode; },
     setUserinfoMode(mode) { userinfoMode = mode; },
     setDiscoveryMode(mode) { discoveryMode = mode; },
+    setRevokeMode(mode) { revokeMode = mode; },
+    revocations,
+    accessTokens,
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -360,6 +409,30 @@ async function runFlow(label, { clientSecret }) {
   stub.setTokenMode('ok');
   ok(`${label}: callback rejects an id_token whose alg is not RS256`);
 
+  // Negative: an id_token whose SIGNED iss claim names a different issuer is
+  // rejected. The callback-query iss check above is a separate control — it
+  // guards the redirect, this one guards the token.
+  stub.setTokenMode('bad-iss');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: an id_token whose iss claim is wrong should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects an id_token whose signed iss claim does not match the issuer`);
+
+  // Negative: a well-formed RS256 id_token signed with a key that is not in
+  // the JWKS. Everything before the signature check passes, so this is the
+  // case that proves the signature is actually verified.
+  stub.setTokenMode('wrong-key');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(res.status, 400, `${label}: an RS256 id_token signed with an unpublished key should be rejected`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: callback rejects a valid RS256 id_token signed with the wrong key`);
+
   // Negative: a nonce mismatch is rejected.
   stub.setTokenMode('bad-nonce');
   {
@@ -446,6 +519,21 @@ async function runFlow(label, { clientSecret }) {
   stub.setTokenMode('ok');
   ok(`${label}: a token response without scope falls back to the requested scopes`);
 
+  // A callback that fails still spends the flow: replaying the same state at
+  // the same session must not be accepted a second time.
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const tampered = new URL(cb.href);
+    tampered.searchParams.set('iss', 'http://127.0.0.1:1/not-the-issuer');
+    const first = await fetch(tampered.href, { headers: { cookie: c } });
+    assert.equal(first.status, 400, `${label}: the tampered callback should fail`);
+    const replay = await fetch(cb.href, { headers: { cookie: c } });
+    assert.equal(replay.status, 400, `${label}: replaying the same state after a failed callback should be refused`);
+    const html = await replay.text();
+    assert.ok(html.includes('state parameter did not match'), `${label}: the replay should be refused on state, not signed in`);
+  }
+  ok(`${label}: a failed callback spends its state — the same state cannot be replayed`);
+
   // A userinfo sub mismatch is ignored — the page keeps the id_token identity.
   stub.setUserinfoMode('bad-sub');
   {
@@ -461,14 +549,166 @@ async function runFlow(label, { clientSecret }) {
   stub.setUserinfoMode('ok');
   ok(`${label}: a userinfo sub mismatch keeps the id_token identity`);
 
+  // Sign out and disconnect are POST, same-origin only.
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const done = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    const signedIn = extractCookie(done) || c;
+
+    for (const path of ['/sign-out', '/disconnect']) {
+      const getRes = await fetch(base + path, { redirect: 'manual', headers: { cookie: signedIn } });
+      assert.equal(getRes.status, 405, `${label}: GET ${path} should be refused`);
+      assert.equal(getRes.headers.get('allow'), 'POST', `${label}: GET ${path} should say which method to use`);
+
+      const crossSite = await fetch(base + path, {
+        method: 'POST',
+        redirect: 'manual',
+        headers: { cookie: signedIn, 'sec-fetch-site': 'cross-site' },
+      });
+      assert.equal(crossSite.status, 403, `${label}: a cross-site POST to ${path} should be refused`);
+    }
+
+    // Still signed in — neither refused request did anything.
+    const still = await fetch(base + '/', { headers: { cookie: signedIn } });
+    assert.ok((await still.text()).includes(TEST_USER.sub), `${label}: a refused request must not end the session`);
+  }
+  ok(`${label}: /sign-out and /disconnect refuse GET (405) and cross-site POST (403)`);
+
+  // Sign out is local: the session goes, and nothing is sent to the issuer.
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const done = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    const signedIn = extractCookie(done) || c;
+    const before = stub.revocations.length;
+
+    const res = await fetch(base + '/sign-out', {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie: signedIn, 'sec-fetch-site': 'same-origin' },
+    });
+    assert.equal(res.status, 302, `${label}: a same-origin POST to /sign-out should redirect home`);
+    assert.equal(stub.revocations.length, before, `${label}: sign out must not call /revoke`);
+    const page = await fetch(base + '/', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    assert.ok(!html.includes(TEST_USER.sub), `${label}: sign out should end the session`);
+    assert.ok(!html.includes('Disconnected'), `${label}: sign out is not a disconnect`);
+  }
+  ok(`${label}: POST /sign-out ends the session locally and never calls /revoke`);
+
+  // Disconnect revokes the refresh token — the family, and the keys minted
+  // under it — and then ends the session.
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const done = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    const signedIn = extractCookie(done) || c;
+    const before = stub.revocations.length;
+
+    const res = await fetch(base + '/disconnect', {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie: signedIn, 'sec-fetch-site': 'same-origin' },
+    });
+    assert.equal(res.status, 302, `${label}: a same-origin POST to /disconnect should redirect home`);
+    assert.equal(res.headers.get('location'), '/?disconnected=ok', `${label}: a successful disconnect should say so on the landing`);
+    assert.equal(stub.revocations.length, before + 1, `${label}: disconnect should call /revoke exactly once`);
+    const call = stub.revocations.at(-1);
+    assert.equal(call.hint, 'refresh_token', `${label}: disconnect should revoke the refresh token`);
+    assert.ok(call.token.startsWith('rt_test_'), `${label}: disconnect should send the refresh token, not the access token`);
+    assert.equal(stub.accessTokens.size, 0, `${label}: revoking the refresh token should take the keys minted under it`);
+
+    const page = await fetch(base + '/?disconnected=ok', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    assert.ok(!html.includes(TEST_USER.sub), `${label}: disconnect should end the session`);
+    assert.ok(html.includes('Disconnected'), `${label}: the landing should confirm the disconnect`);
+    assert.ok(!html.includes('rt_test'), `${label}: the page must never contain a token`);
+  }
+  ok(`${label}: POST /disconnect revokes the refresh token, then ends the session`);
+
+  // A revoke that fails still ends the local session, and says it failed.
+  stub.setRevokeMode('unavailable');
+  {
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const done = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    const signedIn = extractCookie(done) || c;
+
+    const res = await fetch(base + '/disconnect', {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { cookie: signedIn, 'sec-fetch-site': 'same-origin' },
+    });
+    assert.equal(res.headers.get('location'), '/?disconnected=failed', `${label}: a failed revoke should be reported`);
+    const page = await fetch(base + '/?disconnected=failed', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    assert.ok(!html.includes(TEST_USER.sub), `${label}: a failed revoke must still end the local session`);
+    assert.ok(html.includes('did not succeed'), `${label}: the landing should say the revoke did not succeed`);
+  }
+  stub.setRevokeMode('ok');
+  ok(`${label}: a failed revoke still ends the session and reports the failure`);
+
   await new Promise((resolve) => server.close(resolve));
   await stub.close();
+}
+
+// The shared id_token test vector — the same bytes the browser sample's
+// suite runs through its own verifyIdToken. See test-vectors/id-token.json.
+async function testSharedVector() {
+  const vectorPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'test-vectors', 'id-token.json');
+  const vector = JSON.parse(readFileSync(vectorPath, 'utf8'));
+  const options = {
+    jwks: vector.jwks,
+    issuer: vector.params.issuer,
+    clientId: vector.params.clientId,
+    nonce: vector.params.nonce,
+  };
+
+  const claims = await verifyIdToken(vector.valid.idToken, options);
+  assert.deepEqual(claims, vector.valid.claims, 'the shared vector\'s valid id_token should verify to its recorded claims');
+  ok(`shared vector: ${vector.valid.name}`);
+
+  for (const bad of vector.invalid) {
+    await assert.rejects(
+      () => verifyIdToken(bad.idToken, options),
+      (err) => {
+        assert.ok(
+          err.message.includes(bad.expect),
+          `shared vector: rejecting "${bad.name}" should say "${bad.expect}", got "${err.message}"`,
+        );
+        return true;
+      },
+      `shared vector: ${bad.name} should be rejected`,
+    );
+    ok(`shared vector rejects: ${bad.name}`);
+  }
 }
 
 // Reserved characters (':', '%', '+', ' ') exercise the RFC 6749 §2.3.1
 // form-encoding round trip — the env parser trims only line ends, so none
 // of these need escaping in the .env file itself.
+// A PORT that is not a port falls back to the default with a note, rather
+// than failing deep inside listen() with an opaque socket error.
+function testBadPort() {
+  const scratch = mkdtempSync(join(tmpdir(), 'login-with-rezen-port-'));
+  const envPath = join(scratch, 'bad-port.env');
+  writeFileSync(envPath, 'PORT=not-a-port\nAPI_BASE=https://api.example.com\n');
+  process.env.LOGIN_WITH_REZEN_ENV = envPath;
+
+  const warnings = [];
+  const realWarn = console.warn;
+  console.warn = (message) => warnings.push(String(message));
+  try {
+    const config = loadConfig();
+    assert.equal(config.port, 4500, 'a non-numeric PORT should fall back to the default');
+    assert.equal(config.apiBase, 'https://api.example.com', 'API_BASE is read as given, never derived');
+    assert.ok(warnings.some((w) => w.includes('not-a-port')), 'the fallback should be announced');
+  } finally {
+    console.warn = realWarn;
+  }
+  ok('a non-numeric PORT falls back to the default with a console note');
+}
+
 await runFlow('confidential', { clientSecret: 'cs_test_p%ss:w+rd 1' });
 await runFlow('public', { clientSecret: '' });
+await testSharedVector();
+testBadPort();
 
 console.log(`smoke: ${checks} checks passed`);
