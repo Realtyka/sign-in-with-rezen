@@ -756,9 +756,7 @@ const SIGNED_IN_ACTIONS = `
         <form method="post" action="/sign-out"><button class="btn btn-ghost s" type="submit">Sign out</button></form>
         <form method="post" action="/disconnect"><button class="btn btn-ghost s" type="submit">Disconnect</button></form>
       </div>
-      <p class="actions-note">Sign out ends this app&rsquo;s session on this server and leaves your reZEN
-      tokens alone. Disconnect also revokes them at reZEN, so this app&rsquo;s access stops working —
-      your consent is kept, so signing in again does not ask you to approve anything twice.</p>`;
+      <p class="actions-note">Sign out ends this session. Disconnect also removes this app&rsquo;s access to your reZEN account &mdash; sign in again whenever you want to reconnect.</p>`;
 
 function homePage(sessionData, notice) {
   if (sessionData?.identity) {
@@ -850,8 +848,8 @@ const SESSION_CAP = 1000;
 // then, so this line is where a revoke that failed gets reported — the local
 // session is dropped either way, but the user is told the difference.
 const DISCONNECT_NOTICES = {
-  ok: 'Disconnected — your app’s access was revoked.',
-  failed: 'Signed out, but the revoke call did not succeed — your tokens may still be live at reZEN.',
+  ok: 'Disconnected. This app no longer has access to your reZEN account. Sign in again any time to reconnect.',
+  failed: 'Signed out here, but reZEN could not be reached to remove this app’s access — try Disconnect again later.',
 };
 
 export function createServer(config) {

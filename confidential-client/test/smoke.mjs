@@ -640,7 +640,7 @@ async function runFlow(label, { clientSecret }) {
     const page = await fetch(base + '/?disconnected=failed', { headers: { cookie: signedIn } });
     const html = await page.text();
     assert.ok(!html.includes(TEST_USER.sub), `${label}: a failed revoke must still end the local session`);
-    assert.ok(html.includes('did not succeed'), `${label}: the landing should say the revoke did not succeed`);
+    assert.ok(html.includes('could not be reached'), `${label}: the landing should say the revoke did not succeed`);
   }
   stub.setRevokeMode('ok');
   ok(`${label}: a failed revoke still ends the session and reports the failure`);

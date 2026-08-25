@@ -263,10 +263,10 @@ function renderSignedIn(session) {
 // this line is where the outcome is reported — including which token was
 // revoked, and a revoke that did not succeed.
 const DISCONNECT_NOTICES = {
-  refresh_token: 'Disconnected — the refresh token was revoked, and with it the API keys minted under it.',
-  access_token: 'Disconnected — this tab held no refresh token after the reload, so the access token was revoked instead.',
-  failed: 'Signed out, but the revoke call did not succeed — your tokens may still be live at reZEN.',
-  none: 'Signed out — there was no token left in this tab to revoke.',
+  refresh_token: 'Disconnected. This app no longer has access to your reZEN account. Sign in again any time to reconnect.',
+  access_token: 'Disconnected. This app no longer has access to your reZEN account. Sign in again any time to reconnect.',
+  failed: 'Signed out here, but reZEN could not be reached to remove this app’s access — try Disconnect again later.',
+  none: 'Signed out. There was nothing left to disconnect in this tab.',
 };
 
 function showLandingNotice(text) {
