@@ -364,6 +364,14 @@ async function runFlow(label, { clientSecret }) {
   const signedInCookie = extractCookie(callbackRes) || cookie;
   ok(`${label}: /callback exchanges the code and redirects to /`);
 
+  // The session id rotates the moment sign-in succeeds: the callback sets a
+  // new cookie, and the id that existed before sign-in is no longer signed in.
+  assert.ok(extractCookie(callbackRes), `${label}: /callback should set a fresh session cookie`);
+  assert.notEqual(signedInCookie, cookie, `${label}: the session id must change when sign-in succeeds`);
+  const staleRes = await fetch(base + '/', { headers: { cookie } });
+  assert.ok(!(await staleRes.text()).includes(TEST_USER.sub), `${label}: the pre-sign-in session id must not be signed in`);
+  ok(`${label}: the session id rotates at sign-in and the old id is not signed in`);
+
   // 5. GET / shows identity, granted scope, and profile — no token leaked.
   const finalRes = await fetch(base + '/', { headers: { cookie: signedInCookie } });
   const finalHtml = await finalRes.text();
@@ -706,9 +714,42 @@ function testBadPort() {
   ok('a non-numeric PORT falls back to the default with a console note');
 }
 
+// With an https redirect URI the session cookie carries Secure; a request for
+// an Object.prototype key is a plain 404, not a crash.
+async function testCookieHardening() {
+  const port = await getFreePort();
+  const scratch = mkdtempSync(join(tmpdir(), 'login-with-rezen-'));
+  const envPath = join(scratch, 'https.env');
+  writeFileSync(envPath, [
+    'ISSUER=https://issuer.example.com',
+    'CLIENT_ID=client-https',
+    'CLIENT_SECRET=',
+    'REDIRECT_URI=https://app.example.com/callback',
+    `PORT=${port}`,
+    'API_BASE=https://api.example.com',
+    '',
+  ].join('\n'));
+  process.env.LOGIN_WITH_REZEN_ENV = envPath;
+  const server = createServer(loadConfig());
+  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const res = await fetch(base + '/sign-in', { redirect: 'manual' });
+    const setCookie = res.headers.get('set-cookie') || '';
+    assert.ok(/;\s*Secure/i.test(setCookie), 'an https redirect URI makes the session cookie Secure');
+    ok('the session cookie is Secure when the redirect URI is https');
+    const proto = await fetch(base + '/toString');
+    assert.equal(proto.status, 404, 'a prototype-key path is a 404, not a crash');
+    ok('GET /toString is a 404, not a crash');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 await runFlow('confidential', { clientSecret: 'cs_test_p%ss:w+rd 1' });
 await runFlow('public', { clientSecret: '' });
 await testSharedVector();
 testBadPort();
+await testCookieHardening();
 
 console.log(`smoke: ${checks} checks passed`);

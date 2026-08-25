@@ -884,6 +884,12 @@ export function createServer(config) {
     }
   }
 
+  // Cookie attributes: Secure is set whenever this app's own redirect URI is
+  // https — a deployment gets it for free, and the loopback http://[::1]
+  // sample keeps working.
+  const secure = config.redirectUri.startsWith('https:') ? '; Secure' : '';
+  const cookieAttrs = `HttpOnly; Path=/; SameSite=Lax${secure}`;
+
   // Always mints a fresh session id — /sign-in is where sign-in starts, and a
   // pre-existing sid (uncookied visitor, or a stale session) must not be
   // carried into the newly authenticated session.
@@ -894,9 +900,19 @@ export function createServer(config) {
     const id = randomBytes(24).toString('base64url');
     const data = { createdAt: Date.now() };
     sessions.set(id, data);
-    // Add Secure when serving over HTTPS; omitted so the loopback http://[::1] sample works.
-    res.setHeader('Set-Cookie', `sid=${id}; HttpOnly; Path=/; SameSite=Lax`);
+    res.setHeader('Set-Cookie', `sid=${id}; ${cookieAttrs}`);
     return { id, data };
+  }
+
+  // Rotates the session id at the moment authentication succeeds, carrying
+  // the session data across. A cookie that existed before sign-in — one an
+  // attacker could have planted — never becomes an authenticated session.
+  function rotateSession(session, res) {
+    sessions.delete(session.id);
+    const id = randomBytes(24).toString('base64url');
+    sessions.set(id, session.data);
+    res.setHeader('Set-Cookie', `sid=${id}; ${cookieAttrs}`);
+    return { id, data: session.data };
   }
 
   const handler = async (req, res) => {
@@ -916,7 +932,7 @@ export function createServer(config) {
         return sendHtml(res, html);
       }
 
-      if (req.method === 'GET' && LOGOS[url.pathname]) {
+      if (req.method === 'GET' && Object.hasOwn(LOGOS, url.pathname)) {
         return sendSvg(res, LOGOS[url.pathname]);
       }
 
@@ -1054,6 +1070,10 @@ export function createServer(config) {
           steps.push(`Profile call failed (${err.message})`);
         }
 
+        // Authentication succeeded: fresh session id before anything
+        // authenticated is stored under it.
+        rotateSession(session, res);
+
         // RFC 6749 §5.1: scope is OPTIONAL in the token response when it
         // equals the request — a compliant server may omit it entirely.
         session.data.identity = { sub: identity.sub, name: identity.name, email: identity.email, yentaId: identity.yentaId };
@@ -1083,7 +1103,7 @@ export function createServer(config) {
         }
         req.resume(); // the forms carry no fields; drain the body and move on
         const session = getSession(req);
-        res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+        res.setHeader('Set-Cookie', `sid=; ${cookieAttrs}; Max-Age=0`);
 
         // Sign out is local and stops here: the session and every token in
         // it are dropped, and nothing is said to reZEN.
