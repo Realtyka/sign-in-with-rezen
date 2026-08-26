@@ -1,43 +1,39 @@
 # Sign in with reZEN
 
-Two runnable samples of "Sign in with reZEN" — the OAuth 2.1 authorization code flow
-with PKCE and OpenID Connect identity. Each one signs a Real agent in, verifies
-their identity, and calls one Real API on their behalf. Full integration details —
-registration, scopes, token rules, errors, and the security checklist — are in the
-vendor integration guide at
-[`https://keymaker-oauth.therealbrokerage.com/docs`](https://keymaker-oauth.therealbrokerage.com/docs).
+![Sign in with reZEN — the button on a light and a dark background](docs/sign-in-with-rezen.png)
 
-## Which one?
+## Skills
 
-**Client type follows from where the code runs, not from how much you trust the app.**
+Claude Code skills under `.claude/skills/`:
 
-|                                  | `confidential-client/`                          | `public-client/`                                                                             |
-| -------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Where the code runs               | A server you control                              | The user's browser, native, desktop, or CLI                                                     |
-| Client secret                     | Yes — held server-side, never sent to the browser | None                                                                                             |
-| How the code exchange authenticates | Client secret + PKCE                            | PKCE alone                                                                                      |
-| Flow shape                        | Full-page redirect; the server handles the callback | Popup with a full-page redirect fallback; the browser handles the callback                     |
-| Where tokens live                 | Server-side session                               | Access token in memory with a per-tab `sessionStorage` mirror; refresh token in memory only, never persisted |
-| Environment prerequisite          | None beyond registration                          | The issuer must allow cross-origin requests from the app's origin to its token, JWKS, userinfo, revocation, and discovery endpoints; the API host must allow the `x-api-key` header for that origin too |
-| Sign out / Disconnect             | Sign out drops the server-side session; Disconnect revokes the refresh token at the issuer first | Sign out forgets the tab's tokens; Disconnect revokes the refresh token, or the access token once a reload has dropped it |
-| Pick it when                      | You have a backend — the recommended choice whenever one exists | You have no backend that can hold a secret                                                      |
+- `/pr-review <PR URL> [--comment]` — reviews a pull request to this repository: protocol
+  correctness, the two samples' identical `id_token` verifiers, secret and token handling,
+  and the bar in `CLAUDE.md`.
+- `/review-integration <path> [--type confidential|public]` — checks an outside
+  "Sign in with reZEN" implementation against the matching sample.
+- `/build-integration <path> [--type confidential|public]` — builds a "Sign in with reZEN"
+  integration in another project, in that project's own stack, from the samples.
 
-If you have a backend, use the confidential client. A secret in a browser bundle or
-a native binary is not a secret.
+## Samples
 
-Both samples request the same scopes and call the same API; the difference is only
-who holds the credential and how the callback is handled.
+Two runnable samples of "Sign in with reZEN" — OAuth 2.1 authorization code with PKCE and
+OpenID Connect. Registration, scopes, token rules, errors, and the security checklist are in
+the [integration guide](https://keymaker-oauth.therealbrokerage.com/docs).
+
+|               | `confidential-client/`          | `public-client/`                            |
+| ------------- | ------------------------------- | ------------------------------------------- |
+| Code runs     | On a server you control         | In the browser, native app, desktop, or CLI |
+| Client secret | Yes, held server-side           | None — PKCE alone                           |
+| Callback      | Full-page redirect, server-side | Popup (redirect fallback), in the browser   |
+| Tokens live   | Server-side session             | In memory; access token mirrored per tab    |
+
+Have a backend? Use `confidential-client/`. A secret in a browser bundle or native binary is
+not a secret.
 
 ## Run
 
-Pick a project, `cd` into it, and follow its README — `cp .env.example .env`, fill
-in your registered client's values, `npm start`, `npm test`. Node ≥ 18, no
-dependencies.
+In either project: `cp .env.example .env`, fill in your registered client's values,
+`npm start`, `npm test`. Node ≥ 18, no dependencies. Details in each project's README.
 
-## Layout
-
-- `confidential-client/` — server-side sample (port 4500)
-- `public-client/` — browser sample (port 4501)
-- `test-vectors/` — one signed id_token vector both test suites verify, so the two
-  independent verifiers cannot drift apart
-- `CLAUDE.md` — the bar for every file in this repository
+`test-vectors/` holds one signed `id_token` both test suites verify, so the two verifiers
+cannot drift.

@@ -23,3 +23,9 @@ is read by them as-is.
 ## Before committing
 
 Read the diff as the outside developer would. If anything in it is not for them, it does not go in.
+
+## Skills
+
+Three Claude Code skills live under `.claude/skills/` — `pr-review`, `review-integration`,
+`build-integration` — described in the README. Every file these skills produce is held to the
+same bar as every other file in this repository.
