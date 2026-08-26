@@ -1,5 +1,23 @@
 # Sign in with reZEN
 
+![Sign in with reZEN — the button on a light and a dark background](docs/sign-in-with-rezen.png)
+
+## Skills
+
+Three Claude Code skills live under `.claude/skills/` in this repository, for anyone — reviewer or
+integrator — working with a checkout that has Claude Code available.
+
+- **`pr-review`** — reviews a pull request against this repository's samples: client-side
+  protocol correctness, the twin-verifier invariant between the two samples' `id_token`
+  verifiers, secret and token handling, and the repository bar in `CLAUDE.md`. Invoke as
+  `/pr-review <PR URL> [--comment]`.
+- **`review-integration`** — reviews an outside client's "Sign in with reZEN" implementation
+  against the matching sample and reports a divergence table. Invoke as
+  `/review-integration <path>`.
+- **`build-integration`** — builds a new "Sign in with reZEN" integration in another project,
+  in that project's own stack, using the samples' exchanges as the template. Invoke as
+  `/build-integration <path>`.
+
 Two runnable samples of "Sign in with reZEN" — the OAuth 2.1 authorization code flow
 with PKCE and OpenID Connect identity. Each one signs a Real agent in, verifies
 their identity, and calls one Real API on their behalf. Full integration details —
@@ -40,4 +58,6 @@ dependencies.
 - `public-client/` — browser sample (port 4501)
 - `test-vectors/` — one signed id_token vector both test suites verify, so the two
   independent verifiers cannot drift apart
+- `docs/` — the screenshot above
+- `.claude/skills/` — the three skills above
 - `CLAUDE.md` — the bar for every file in this repository

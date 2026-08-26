@@ -26,18 +26,6 @@ Read the diff as the outside developer would. If anything in it is not for them,
 
 ## Skills
 
-Three Claude Code skills live under `.claude/skills/` in this repository, for anyone — reviewer or
-integrator — working with a checkout that has Claude Code available.
-
-- **`pr-review`** — reviews a pull request against this repository's samples: client-side
-  protocol correctness, the twin-verifier invariant between the two samples' `id_token`
-  verifiers, secret and token handling, and the repository bar above. Invoke as
-  `/pr-review <PR URL> [--comment]`.
-- **`review-integration`** — reviews an outside client's "Sign in with reZEN" implementation
-  against the matching sample and reports a divergence table. Invoke as
-  `/review-integration <path>`.
-- **`build-integration`** — builds a new "Sign in with reZEN" integration in another project,
-  in that project's own stack, using the samples' exchanges as the template. Invoke as
-  `/build-integration <path>`.
-
-Every file these skills produce is held to the same bar as every other file in this repository.
+Three Claude Code skills live under `.claude/skills/` — `pr-review`, `review-integration`,
+`build-integration` — described in the README. Every file these skills produce is held to the
+same bar as every other file in this repository.
