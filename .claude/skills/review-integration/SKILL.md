@@ -43,7 +43,9 @@ tokens to probe the client under review with, if it exposes a way to do that off
 
 Search the client's code for each exchange below. An exchange the client doesn't implement at all
 is itself a finding (severity depends on whether the sample it's being compared against implements
-it — see the note on refresh).
+it — see the note on refresh). The last item is not an exchange — the sign-in button — but it is
+reviewed the same way, against the same reference, and the `build-integration` skill's closing
+checklist mirrors this list including it.
 
 ### The exchange list
 
@@ -108,6 +110,19 @@ it — see the note on refresh).
     act on, rather than surfaced raw or swallowed silently? Reference: `mapAuthorizeError()` and
     `mapTokenError()` in `confidential-client/src/server.js` and
     `public-client/public/callback.js`.
+15. **Sign-in button** — is the sign-in affordance the `.rezen-btn` template ported faithfully
+    (colors, metrics, radius, and the hover/pressed/loading/disabled states carried over — the
+    implementation technique may differ, the design may not), or a redesign in the host's own
+    visual language? Check the same five points the `build-integration` skill's Step 6 requires:
+    the label is "Sign in with" followed by the wordmark as an image (white asset on the filled
+    variant, black on outline — never recolored text); the variant/fill choice is stated (filled on
+    a light ground, outline on a dark one; `navy` by default, `rezen` where the host's own primary
+    call-to-action is already reZEN blue); the loading state (`is-loading` + `aria-busy`) is set on
+    click and cleared on the error-return path; and a popup appears only in a public client — a
+    confidential client keeps the plain-anchor full-page redirect. Reference: `.rezen-btn` in
+    `public-client/public/style.css`, `loginButton()` and `specimen()` in
+    `confidential-client/src/server.js`, and `setLoading()` in `public-client/public/app.js` for
+    the loading state.
 
 ## Step 4: Produce the divergence table
 
@@ -128,7 +143,9 @@ Severity guide:
   `x-api-key`, error codes not mapped, redirect URI matching that isn't exact).
 - **LOW** — a divergence in shape or polish that doesn't affect security or correctness (sign-out
   and disconnect conflated without a security consequence, a config key named differently, a
-  missing `.env.example`-style template).
+  missing `.env.example`-style template, a sign-in button that departs from the `.rezen-btn`
+  template — bare text anchor, recolored wordmark, missing loading state, popup in a confidential
+  client).
 
 Rows with no divergence are not listed — the table is a punch list, not a full trace.
 
