@@ -9,7 +9,8 @@ argument-hint: "<path-to-target-project> [--type confidential|public]"
 Given the path to a target project, build a "Sign in with reZEN" integration in that project's own
 stack, using the exchanges this repository's samples perform as the template — not a port of the
 samples' code, a re-implementation of the same protocol steps in idioms the target project already
-uses.
+uses. That freedom is about implementation — language, framework, code shape — not about the
+sign-in button's appearance: Step 6 covers the button, and there the template is not a suggestion.
 
 ## Step 1: Read the reference
 
@@ -97,12 +98,39 @@ with a rejection reason containing that case's `expect` string. Both samples' ow
 their own verifiers this same way — use them as a model for the assertions if the target's test
 runner needs an example.
 
-## Step 6: Deliver
+## Step 6: Port the sign-in button
+
+The sign-in affordance MUST use the `.rezen-btn` template, ported faithfully into the target's
+idiom — colors, metrics, radius, and states carried over verbatim. Tailwind, CSS-in-JS, or plain
+CSS are all fine; a different implementation technique is not license to redesign the button.
+Reference `public-client/public/style.css` (~L207–373: two variants — filled, outline — three fill
+styles — navy, rezen, neutral — four sizes, and the hover/pressed/loading/disabled states) and
+`confidential-client/src/server.js`'s `loginButton()` (~L709) and `specimen()` (~L722).
+
+- **Label and wordmark.** The label is "Sign in with" followed by the wordmark as an IMAGE, never
+  recolored text: the white asset on the filled variant, the black asset on the outline variant
+  (`rezen-logo-white.svg` / `rezen-logo-black.svg`). Copy both SVGs into the target repo.
+- **Variant and fill are a stated decision**, not a default left implicit: filled on a light
+  ground, outline on a dark one; fill style `navy` by default, `rezen` (blue) where the host's own
+  primary call-to-action is already reZEN blue. Say which was chosen and why.
+- **Loading state.** Wire it even though the samples don't all model it: `confidential-client`'s
+  `loginButton()` renders a plain anchor because that page carries no script by design (its CSP
+  allows none), so its `is-loading`/disabled CSS sits unused there — but `public-client`'s
+  `app.js` (`setLoading()`) does wire it, and is the model to port. On click, add `is-loading` and
+  `aria-busy="true"` to the button before navigating away; return the button to rest on the
+  error-return path, the same way `setLoading(undefined)` runs in a `finally` once the flow ends
+  by anything other than a fresh page navigation.
+- **Popup is public-client-only.** A confidential integration's exchange runs server-side behind a
+  secret, so it keeps `loginButton()`'s plain-anchor full-page redirect — never a popup.
+
+## Step 7: Deliver
 
 - **Config template** mirroring the sample `.env.example` files' keys: `ISSUER`, `CLIENT_ID`,
   `CLIENT_SECRET` (confidential only, blank means public), `REDIRECT_URI`, `SCOPES`, `API_BASE` —
   in whatever config format the target project already uses.
 - **The flow itself**, implemented per Step 4's list in the target's idioms.
+- **The sign-in button**, per Step 6: the ported `.rezen-btn` template, the wordmark SVG assets
+  copied in, and the loading state wired.
 - **A smoke test** that includes, at minimum, the `id_token` vector test from Step 5, run offline
   with no network access and no real credentials — the same shape as the samples' own
   `npm test`.
@@ -110,7 +138,7 @@ runner needs an example.
   `<issuer>/docs` for registration, scopes, token rules, errors, and the security checklist,
   rather than restating any of it.
 
-## Step 7: Closing checklist
+## Step 8: Closing checklist
 
 End with a checklist that mirrors the `review-integration` skill's exchange list, one line per
 exchange, so a later review of this integration and this build agree on what "done" covers:
@@ -132,3 +160,12 @@ exchange, so a later review of this integration and this build agree on what "do
 - [ ] Issuer error codes mapped to actionable messages
 - [ ] Config template mirrors the sample `.env.example` keys
 - [ ] README links the vendor guide instead of restating it
+- [ ] Sign-in button ports the `.rezen-btn` template verbatim (colors, metrics, radius, states) —
+      not a redesign in the target's own visual language
+- [ ] Label is "Sign in with" + the wordmark image (white on filled, black on outline); the SVG
+      assets are copied into the target repo, never recolored as text
+- [ ] Variant/fill is a stated decision (filled/outline by ground, navy default vs. `rezen`)
+- [ ] Loading state (`is-loading` + `aria-busy`) is set on click and cleared on the error-return
+      path
+- [ ] Popup is used only in a public client; a confidential client keeps the plain-anchor
+      full-page redirect
