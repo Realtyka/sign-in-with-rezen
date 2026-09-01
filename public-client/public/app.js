@@ -1,4 +1,4 @@
-import { apiCall, authorizeUrl, discover, pkce, randomToken, revoke, userinfo } from './oidc.js';
+import { apiCall, authorizeUrl, discover, hasScope, pkce, randomToken, revoke, userinfo } from './oidc.js';
 import { CHANNEL_NAME, POPUP_NAME, SESSION_KEY, STASH_KEY } from './keys.js';
 
 const POPUP_CLOSE_POLL_MS = 500;
@@ -165,8 +165,9 @@ function handleResult(msg) {
   }).finally(() => setLoading(undefined));
 }
 
-// Fetches /userinfo and GET /api/v1/users/me, renders the result, and
-// mirrors everything but the refresh token into sessionStorage.
+// Fetches /userinfo and, when ACCOUNT_READ was granted, GET
+// /api/v1/users/me, renders the result, and mirrors everything but the
+// refresh token into sessionStorage.
 async function completeAndRender(session) {
   const steps = [...(session.steps || [])];
 
@@ -189,20 +190,27 @@ async function completeAndRender(session) {
     steps.push(`userinfo call failed (${err.message})`);
   }
 
+  // /me is a data-scope endpoint — it needs ACCOUNT_READ. Only call it when
+  // that scope was actually granted, so a client using the identity scopes
+  // for sign-in only doesn't record a 403 as a failure.
   let profile;
-  try {
-    const res = await apiCall(config.apiBase, '/api/v1/users/me', session.accessToken);
-    if (res.status === 200) {
-      profile = {
-        displayName: res.body.displayName ?? '(not present)',
-        type: res.body.type ?? '(not present)',
-      };
-      steps.push('/me fetched with x-api-key (200)');
-    } else {
-      steps.push(`/me call failed (HTTP ${res.status})`);
+  if (hasScope(session.scope, 'ACCOUNT_READ')) {
+    try {
+      const res = await apiCall(config.apiBase, '/api/v1/users/me', session.accessToken);
+      if (res.status === 200) {
+        profile = {
+          displayName: res.body.displayName ?? '(not present)',
+          type: res.body.type ?? '(not present)',
+        };
+        steps.push('/me fetched with x-api-key (200)');
+      } else {
+        steps.push(`/me call failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      steps.push(`/me call failed (${err.message})`);
     }
-  } catch (err) {
-    steps.push(`/me call failed (${err.message})`);
+  } else {
+    steps.push('/me call skipped — ACCOUNT_READ was not granted');
   }
 
   const mirror = { ...session, claims, steps, profile, completed: true };
@@ -241,7 +249,7 @@ function renderSignedIn(session) {
     profileSkip.hidden = true;
   } else {
     profileTable.hidden = true;
-    profileSkip.textContent = 'Not shown — the /me call did not return a profile.';
+    profileSkip.textContent = 'Not shown — see the steps below.';
     profileSkip.hidden = false;
   }
 

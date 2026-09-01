@@ -17,6 +17,7 @@ import {
   authorizeUrl,
   discover,
   exchangeCode,
+  hasScope,
   pkce,
   randomToken,
   revoke,
@@ -510,6 +511,15 @@ async function testProtocol() {
     'revoke() should refuse to guess an endpoint the discovery document does not publish',
   );
   ok('revoke() refuses to run when discovery publishes no revocation_endpoint');
+
+  // hasScope() drives whether the page calls /me at all — it needs an exact
+  // token match, not a prefix or substring.
+  assert.equal(hasScope('openid ACCOUNT_READ profile', 'ACCOUNT_READ'), true, 'hasScope() should find a granted scope');
+  assert.equal(hasScope('openid profile email', 'ACCOUNT_READ'), false, 'hasScope() should say no when the scope was not granted');
+  assert.equal(hasScope('', 'ACCOUNT_READ'), false, 'hasScope() should say no for an empty scope string');
+  assert.equal(hasScope(undefined, 'ACCOUNT_READ'), false, 'hasScope() should say no for an undefined scope string');
+  assert.equal(hasScope('ACCOUNT_READ_ALL', 'ACCOUNT_READ'), false, 'hasScope() should not match a scope that merely contains the name as a substring');
+  ok('hasScope() matches the exact scope token, not a prefix or substring');
 
   await stub.close();
 }

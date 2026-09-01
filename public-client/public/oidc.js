@@ -173,6 +173,13 @@ export async function revoke(discovery, { clientId, token, tokenTypeHint }) {
   return { status: res.status };
 }
 
+// Whether a whitespace-separated granted scope string carries the exact
+// scope token `name` — not a substring or prefix match, so `ACCOUNT_READ_ALL`
+// does not satisfy a check for `ACCOUNT_READ`.
+export function hasScope(scope, name) {
+  return (scope || '').split(/\s+/).includes(name);
+}
+
 // Real resource APIs take the access token as an API key, never Bearer.
 export async function apiCall(apiBase, path, accessToken) {
   const res = await fetch(`${apiBase}${path}`, {
