@@ -183,7 +183,11 @@ async function startStub({ clientId, clientSecret }) {
         access_token: accessToken,
         token_type: 'Bearer',
         expires_in: 43200,
-        scope: tokenMode === 'no-scope' ? undefined : entry.scope,
+        scope: tokenMode === 'no-scope'
+          ? undefined
+          : tokenMode === 'identity-only'
+            ? entry.scope.split(/\s+/).filter((s) => s !== 'ACCOUNT_READ').join(' ')
+            : entry.scope,
         refresh_token: refreshToken,
         id_token: idToken,
       });
@@ -241,9 +245,11 @@ async function startStub({ clientId, clientSecret }) {
   });
   await new Promise((resolve) => issuerServer.listen(issuerPort, '127.0.0.1', resolve));
 
+  let meCalls = 0;
   const apiServer = http.createServer((req, res) => {
     const url = new URL(req.url, apiUrl);
     if (req.method === 'GET' && url.pathname === '/api/v1/users/me') {
+      meCalls += 1;
       assert.equal(req.headers.authorization, undefined, 'the API call must never send Authorization');
       const key = req.headers['x-api-key'];
       if (!key || !accessTokens.has(key)) return json(res, 401, { error: 'invalid_key' });
@@ -262,6 +268,7 @@ async function startStub({ clientId, clientSecret }) {
     setRevokeMode(mode) { revokeMode = mode; },
     revocations,
     accessTokens,
+    get meCalls() { return meCalls; },
     close() {
       return Promise.all([
         new Promise((resolve) => issuerServer.close(resolve)),
@@ -526,6 +533,25 @@ async function runFlow(label, { clientSecret }) {
   }
   stub.setTokenMode('ok');
   ok(`${label}: a token response without scope falls back to the requested scopes`);
+
+  // Without ACCOUNT_READ granted, /me is never called and the page says so
+  // instead of reporting a failure.
+  stub.setTokenMode('identity-only');
+  {
+    const before = stub.meCalls;
+    const { cookie: c, callbackLocation: cb } = await beginFlow();
+    const res = await fetch(cb.href, { redirect: 'manual', headers: { cookie: c } });
+    assert.equal(res.status, 302, `${label}: signing in without ACCOUNT_READ should still succeed`);
+    const signedIn = extractCookie(res) || c;
+    const page = await fetch(base + '/', { headers: { cookie: signedIn } });
+    const html = await page.text();
+    assert.ok(html.includes('Profile call skipped'), `${label}: the page should say the profile call was skipped`);
+    assert.ok(!html.includes('Profile call failed'), `${label}: a skipped call must not be reported as a failure`);
+    assert.equal(stub.meCalls, before, `${label}: /me must not be called without ACCOUNT_READ`);
+    assert.ok(!html.includes('class="badge brand">ACCOUNT_READ<'), `${label}: the granted-scope badges should not include ACCOUNT_READ`);
+  }
+  stub.setTokenMode('ok');
+  ok(`${label}: /me is skipped, not called, when ACCOUNT_READ was not granted`);
 
   // A callback that fails still spends the flow: replaying the same state at
   // the same session must not be accepted a second time.

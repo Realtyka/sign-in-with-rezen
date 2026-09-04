@@ -775,7 +775,7 @@ function homePage(sessionData, notice) {
         + `<tr><td>displayName</td><td>${escapeHtml(String(sessionData.profile.displayName))}</td></tr>`
         + `<tr><td>type</td><td>${escapeHtml(String(sessionData.profile.type))}</td></tr>`
         + `</table></div>`
-      : `<h2 class="section-label">Profile</h2><p class="caption">The /me call did not return a result — see the steps below.</p>`;
+      : `<h2 class="section-label">Profile</h2><p class="caption">No profile to show — see the steps below.</p>`;
     // A step that reports a failure gets a different marker — the timeline is
     // a record of what happened, not a row of ticks.
     const steps = (sessionData.steps || [])
@@ -1054,30 +1054,39 @@ export function createServer(config) {
           steps.push(`Userinfo call failed (${err.message})`);
         }
 
+        // RFC 6749 §5.1: scope is OPTIONAL in the token response when it
+        // equals the request — a compliant server may omit it entirely.
+        const grantedScope = tokenRes.body.scope || config.scopes.join(' ');
+
+        // /me is a data-scope endpoint — it needs ACCOUNT_READ. Only call it
+        // when that scope was actually granted, so a client using the
+        // identity scopes for sign-in only doesn't record a 403 as a failure.
         let profile;
-        try {
-          const profileRes = await apiCall(config.apiBase, '/api/v1/users/me', accessToken);
-          if (profileRes.status === 200) {
-            profile = {
-              displayName: profileRes.body.displayName ?? '(not present)',
-              type: profileRes.body.type ?? '(not present)',
-            };
-            steps.push('Profile fetched from /me with x-api-key (200)');
-          } else {
-            steps.push(`Profile call failed (HTTP ${profileRes.status})`);
+        if (grantedScope.split(/\s+/).includes('ACCOUNT_READ')) {
+          try {
+            const profileRes = await apiCall(config.apiBase, '/api/v1/users/me', accessToken);
+            if (profileRes.status === 200) {
+              profile = {
+                displayName: profileRes.body.displayName ?? '(not present)',
+                type: profileRes.body.type ?? '(not present)',
+              };
+              steps.push('Profile fetched from /me with x-api-key (200)');
+            } else {
+              steps.push(`Profile call failed (HTTP ${profileRes.status})`);
+            }
+          } catch (err) {
+            steps.push(`Profile call failed (${err.message})`);
           }
-        } catch (err) {
-          steps.push(`Profile call failed (${err.message})`);
+        } else {
+          steps.push('Profile call skipped — ACCOUNT_READ was not granted');
         }
 
         // Authentication succeeded: fresh session id before anything
         // authenticated is stored under it.
         rotateSession(session, res);
 
-        // RFC 6749 §5.1: scope is OPTIONAL in the token response when it
-        // equals the request — a compliant server may omit it entirely.
         session.data.identity = { sub: identity.sub, name: identity.name, email: identity.email, yentaId: identity.yentaId };
-        session.data.scope = tokenRes.body.scope || config.scopes.join(' ');
+        session.data.scope = grantedScope;
         session.data.profile = profile;
         session.data.steps = steps;
         // Both tokens are kept server-side for the life of the session —

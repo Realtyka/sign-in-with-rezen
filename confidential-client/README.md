@@ -42,7 +42,8 @@ your redirect URI is registered as (see the guide's errors section).
 4. The sample exchanges the code for tokens (with your client secret if you have one,
    PKCE alone if not).
 5. It verifies the returned identity token, then fetches your identity from `/userinfo`.
-6. It calls `/me` — your own profile — using the access token as an API key.
+6. If your consent granted `ACCOUNT_READ`, it calls `/me` — your own profile — using the
+   access token as an API key; otherwise it skips the call and says so.
 7. **Disconnect** posts to `/disconnect`, which calls the issuer's `/revoke` with your
    refresh token before dropping the session. **Sign out** posts to `/sign-out`, which
    drops the session and nothing else.
@@ -50,8 +51,9 @@ your redirect URI is registered as (see the guide's errors section).
 ## What the page shows
 
 Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actually
-granted, your profile from `/me` (`displayName`, `type`), and the steps above as
-they happened — and, at the bottom, the two ways out: **Sign out** and **Disconnect**.
+granted, your profile from `/me` (`displayName`, `type`) when `ACCOUNT_READ` was
+granted, and the steps above as they happened — and, at the bottom, the two ways out:
+**Sign out** and **Disconnect**.
 
 The button follows the reZEN sign-in button specification — filled and outline
 variants, three fill styles (navy, reZEN, neutral), four sizes, a wordmark layout and a

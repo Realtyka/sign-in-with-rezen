@@ -60,8 +60,9 @@ your redirect URI is registered as (see the guide's errors section).
    PKCE alone, no secret, `client_id` in the body — and verifies the returned identity
    token in the browser.
 6. The result is handed to the main page over a `BroadcastChannel` (and `postMessage`
-   when the popup still has an opener); the main page fetches `/userinfo`, then calls
-   one Real API — your own profile — using the access token as an API key.
+   when the popup still has an opener); the main page fetches `/userinfo`, then, if
+   `ACCOUNT_READ` was granted, calls one Real API — your own profile — using the access
+   token as an API key. Without that scope the call is skipped.
 7. **Disconnect** calls the issuer's `/revoke` — with the refresh token if this tab still
    holds one, and with the access token if it doesn't (after a reload it never does) —
    and then clears the tab's session. **Sign out** clears the tab's session and nothing
@@ -70,9 +71,10 @@ your redirect URI is registered as (see the guide's errors section).
 ## What the page shows
 
 Your verified identity (`sub`, `name`, `email`, `yentaId`), the scope you actually
-granted, your profile (`displayName`, `type`), and the steps above as they happened —
-and, at the bottom, the two ways out: **Sign out** and **Disconnect**. After a
-disconnect the landing says which token was revoked, or that the revoke did not succeed.
+granted, your profile (`displayName`, `type`) when `ACCOUNT_READ` was granted, and the
+steps above as they happened — and, at the bottom, the two ways out: **Sign out** and
+**Disconnect**. After a disconnect the landing says which token was revoked, or that the
+revoke did not succeed.
 
 The button follows the reZEN sign-in button specification — filled and outline
 variants, three fill styles (navy, reZEN, neutral), four sizes, a wordmark layout and a
