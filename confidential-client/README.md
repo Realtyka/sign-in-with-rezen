@@ -92,6 +92,14 @@ sample's suite runs through its own verifier too, so the two verifiers cannot dr
   reversible act, and collapsing the two buttons into one would hide the distinction the
   guide draws and vendors have to implement. If your product wants sign out to revoke,
   the change is one call in `/sign-out`; say so in your UI.
+- **Disconnect ends this sign-in, not every sign-in.** Revoking a refresh token revokes
+  that sign-in's token family — every generation of it — and the API keys minted from it;
+  revoking an access token revokes that one key. The user's other sign-ins with your app
+  (another browser, another device) keep working. The one exception is the issuer's theft
+  tripwire: if an already-rotated refresh token is presented again (a quick retry of the
+  same refresh is tolerated; a later replay is not), reZEN revokes every sign-in this user
+  has with your app. The consent survives the tripwire, so the fix is to run the
+  authorization code flow again — it completes without a consent screen.
 - Your stored consent survives a disconnect. Signing in again is a redirect round-trip,
   not a second consent screen — that is by design, and worth saying in your own UI so
   "disconnect" doesn't read as "delete everything".
