@@ -94,9 +94,9 @@ checklist mirrors this list including it.
     API keys minted from it; revoking an access token revokes that one key; the user's other
     sign-ins with the app survive, and `/revoke` never revokes the consent. The refresh-reuse
     theft tripwire (an already-rotated refresh token presented again, past the short retry
-    tolerance) revokes every sign-in the user has with the app; the consent survives, so the recovery is a screenless re-run of the authorization
-    code flow. Copy that promises disconnect signs the user out everywhere, or removes the
-    consent, is wrong.
+    tolerance) revokes every sign-in the user has with the app; the consent survives, so the
+    recovery is a screenless re-run of the authorization code flow. Copy that promises
+    disconnect signs the user out everywhere, or removes the consent, is wrong.
 11. **Sign-out** — does "sign out" stay purely local (clear the client's own session/tokens) and
     make no call to the issuer? Both samples draw this distinction deliberately — conflating
     sign-out with disconnect is a design regression worth flagging even though nothing is
