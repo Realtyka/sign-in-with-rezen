@@ -134,6 +134,14 @@ kind of stub.
   sends the access token instead, which revokes that one key. That is the honest limit of
   a browser-only client, and the landing says which of the two happened. A confidential
   client keeps the refresh token server-side and never has the weaker case.
+- **Disconnect ends this sign-in, not every sign-in.** Revoking a refresh token revokes
+  that sign-in's token family — every generation of it — and the API keys minted from it;
+  revoking an access token revokes that one key. The user's other sign-ins with your app
+  (another browser, another device) keep working, and `/revoke` never revokes the consent.
+  The one exception is the issuer's theft tripwire: if a rotated refresh token is replayed after the reuse grace window,
+  reZEN revokes every sign-in this user has with your app. The consent survives that too,
+  so the fix is to run the authorization code flow again — it completes without a consent
+  screen.
 - Your stored consent survives a disconnect. Signing in again is a redirect round-trip,
   not a second consent screen — that is by design, and worth saying in your own UI so
   "disconnect" doesn't read as "delete everything".

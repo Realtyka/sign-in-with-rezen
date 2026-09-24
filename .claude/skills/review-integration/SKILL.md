@@ -89,7 +89,14 @@ checklist mirrors this list including it.
     state, and does it treat any response status as acceptable rather than using it as an oracle
     for whether the token existed (RFC 7009 §2.2)? Reference: `revoke()` in either sample's
     `oidc.js`, called from `/disconnect` in `confidential-client/src/server.js` and from
-    `disconnect()` in `public-client/public/app.js`.
+    `disconnect()` in `public-client/public/app.js`. Scope, for judging what the client tells
+    its user: revoking a refresh token revokes that sign-in's family (every generation) and the
+    API keys minted from it; revoking an access token revokes that one key; the user's other
+    sign-ins with the app survive, and `/revoke` never revokes the consent. The refresh-reuse
+    theft tripwire (a rotated refresh token replayed after the reuse grace window) revokes every sign-in the user has with
+    the app; the consent survives, so the recovery is a screenless re-run of the authorization
+    code flow. Copy that promises disconnect signs the user out everywhere, or removes the
+    consent, is wrong.
 11. **Sign-out** — does "sign out" stay purely local (clear the client's own session/tokens) and
     make no call to the issuer? Both samples draw this distinction deliberately — conflating
     sign-out with disconnect is a design regression worth flagging even though nothing is
