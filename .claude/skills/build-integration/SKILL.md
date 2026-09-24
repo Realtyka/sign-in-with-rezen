@@ -59,7 +59,12 @@ transliterated from JavaScript:
    `nonce`)
 7. `/userinfo` (the only exchange using `Authorization: Bearer`)
 8. API calls with the access token as an API key header (`x-api-key`)
-9. Revocation / disconnect (RFC 7009 — token in the body, any response status accepted)
+9. Revocation / disconnect (RFC 7009 — token in the body, any response status accepted). Scope:
+   a refresh-token revoke ends this sign-in — its family (every generation) and the API keys
+   minted from it; an access-token revoke ends that one key. The user's other sign-ins with the
+   app survive, and `/revoke` never revokes the consent. The refresh-reuse theft tripwire ends
+   every sign-in the user has with the app; the consent survives, so recover with a screenless
+   re-run of the authorization code flow.
 10. Sign-out (local only, no call to the issuer)
 11. Token storage appropriate to the client type (server-side only for confidential; in-memory
     access token + `sessionStorage` mirror and in-memory-only refresh token for public — never a
@@ -154,6 +159,7 @@ exchange, so a later review of this integration and this build agree on what "do
 - [ ] `/userinfo` is the only place `Authorization: Bearer` is used
 - [ ] API calls send the access token as `x-api-key`, not Bearer
 - [ ] Revocation sends the token in the POST body and treats the response as idempotent, not an oracle
+- [ ] Disconnect copy says it ends this sign-in only (other sign-ins and the consent survive)
 - [ ] Sign-out is local only; no call to the issuer
 - [ ] Token storage matches the client type (server-side only, or in-memory + non-persisted refresh)
 - [ ] Redirect URI matched exactly; cross-window messages origin-checked (public client)
