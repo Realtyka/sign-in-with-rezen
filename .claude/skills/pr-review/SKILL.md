@@ -141,7 +141,13 @@ Each agent must return findings in this structured format:
    - **Revocation (RFC 7009)** — the token goes in the POST body, never a URL or a log line
      (`revoke()` in each `oidc.js`); treating a non-200 or a 200 response as proof a token did or
      did not exist is a misunderstanding of RFC 7009 §2.2 (revocation is idempotent and must not
-     become an oracle) and is MEDIUM.
+     become an oracle) and is MEDIUM. Scope: a refresh-token revoke revokes that sign-in's family
+     (every generation) and the API keys minted from it; an access-token revoke revokes that one
+     key; the user's other sign-ins with the app survive, and `/revoke` never revokes the
+     consent. The refresh-reuse theft tripwire revokes every sign-in the user has with the app;
+     the consent survives, so the fix is a screenless re-run of the authorization code flow. A
+     change whose docs or UI copy says disconnect signs the user out everywhere, or removes the
+     consent, is MEDIUM.
 
    In addition, note any **positive observations** — correct discovery use, clean PKCE handling.
 
